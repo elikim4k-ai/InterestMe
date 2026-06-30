@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"C:\\\\Users\\\\eliki\\\\OneDrive\\\\Desktop\\\\InterestMe\"; $dirs = @\\(\"src/app/\\(auth\\)/login\",\"src/app/\\(auth\\)/signup\",\"src/app/\\(auth\\)/onboarding\",\"src/app/\\(dashboard\\)/dashboard\",\"src/app/\\(dashboard\\)/profile\",\"src/app/\\(dashboard\\)/events\",\"src/app/\\(dashboard\\)/discover\",\"src/app/\\(dashboard\\)/connections\",\"src/app/\\(dashboard\\)/settings\",\"src/app/event/[slug]\",\"src/app/api/auth\",\"src/components/ui\",\"src/components/layout\",\"src/components/forms\",\"src/components/profile\",\"src/components/events\",\"src/components/shared\",\"src/lib/supabase\",\"src/lib/ai\",\"src/lib/utils\",\"src/hooks\",\"src/stores\",\"src/types\",\"src/styles\",\"prisma/migrations\",\"supabase/functions\",\"supabase/migrations\"\\); foreach \\($d in $dirs\\) { New-Item -ItemType Directory -Force $d | Out-Null }; Write-Host \"Directories created\")",
+      "PowerShell(Rename-Item \"C:\\\\Users\\\\eliki\\\\OneDrive\\\\Desktop\\\\InterestMe\\\\src\\\\middleware.ts\" \"C:\\\\Users\\\\eliki\\\\OneDrive\\\\Desktop\\\\InterestMe\\\\src\\\\proxy.ts\")",
+      "PowerShell(cd \"C:\\\\Users\\\\eliki\\\\OneDrive\\\\Desktop\\\\InterestMe\"; $dirs = @\\(\"src/lib/actions\",\"src/lib/validations\",\"src/app/\\(dashboard\\)/events/new\",\"src/app/\\(dashboard\\)/events/[id]\",\"src/app/\\(dashboard\\)/events/[id]/manage\",\"src/components/profile\",\"src/components/events\"\\); foreach \\($d in $dirs\\) { New-Item -ItemType Directory -Force $d | Out-Null }; npm install qrcode @radix-ui/react-checkbox @radix-ui/react-radio-group 2>&1 | Select-Object -Last 3; npm install -D @types/qrcode 2>&1 | Select-Object -Last 2)",
+      "PowerShell(cd \"C:\\\\Users\\\\eliki\\\\OneDrive\\\\Desktop\\\\InterestMe\"; $dirs = @\\(\"src/lib/ai\",\"src/lib/gamification\",\"src/components/discover\",\"src/components/gamification\",\"src/hooks\"\\); foreach \\($d in $dirs\\) { New-Item -ItemType Directory -Force $d | Out-Null }; Write-Host \"ok\")",
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(grep -E \"\\\\.env\\\\.local$|\\\\.env$\")"
+    ]
+  }
+}

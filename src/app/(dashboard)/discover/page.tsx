@@ -1,0 +1,73 @@
+import type { Metadata } from "next"
+import { redirect } from "next/navigation"
+import Link from "next/link"
+import { Sparkles } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
+import { getMyRecommendations } from "@/lib/actions/recommendations"
+import { Button } from "@/components/ui/button"
+import { DiscoverFeed } from "@/components/discover/discover-feed"
+
+export const dynamic = "force-dynamic"
+export const metadata: Metadata = { title: "Discover" }
+
+export default async function DiscoverPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ event?: string }>
+}) {
+  const { event: eventParam } = await searchParams
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
+
+  // Resolve the active event: query param, else most recent attendance
+  let eventId = eventParam
+  if (!eventId) {
+    const { data: recent } = await supabase
+      .from("event_attendees")
+      .select("event_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    eventId = recent?.event_id
+  }
+
+  if (!eventId) {
+    return (
+      <div className="p-6 lg:p-8 max-w-2xl mx-auto">
+        <div className="text-center py-20 space-y-4">
+          <Sparkles className="size-12 mx-auto text-violet-500" />
+          <h1 className="text-2xl font-bold">Discover people</h1>
+          <p className="text-muted-foreground">
+            Join an event to start discovering people you should meet.
+          </p>
+          <Button variant="gradient" asChild>
+            <Link href="/events">Browse events</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("name")
+    .eq("id", eventId)
+    .single()
+
+  const recsResult = await getMyRecommendations(eventId)
+  const matches = recsResult.success ? recsResult.data : []
+
+  return (
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <DiscoverFeed
+        eventId={eventId}
+        eventName={event?.name ?? "this event"}
+        initialMatches={matches}
+      />
+    </div>
+  )
+}
