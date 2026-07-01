@@ -56,6 +56,16 @@ export function LocationShareProvider({
   const [positions, setPositions] = useState<Map<string, { name: string } & Coords>>(new Map())
   const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const subscribedRef = useRef(false)
+  const latestCoordsRef = useRef<Coords | null>(null)
+
+  // Broadcast my latest coords — only meaningful once the channel is subscribed.
+  function broadcast() {
+    const c = latestCoordsRef.current
+    if (c && subscribedRef.current) {
+      channelRef.current?.track({ userId: meUserId, name: meName, lat: c.lat, lng: c.lng })
+    }
+  }
 
   // Subscribe to the shared channel once and track everyone's positions.
   useEffect(() => {
@@ -76,12 +86,19 @@ export function LocationShareProvider({
         }
         setPositions(map)
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          subscribedRef.current = true
+          broadcast() // push whatever coords we already have
+        }
+      })
     return () => {
+      subscribedRef.current = false
       channelRef.current = null
       supabase.removeChannel(channel)
     }
-  }, [eventId, meUserId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, meUserId, meName])
 
   // Watch my location while enabled and broadcast it.
   useEffect(() => {
@@ -94,13 +111,15 @@ export function LocationShareProvider({
       (pos) => {
         setError(null)
         const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        latestCoordsRef.current = c
         setMyCoords(c)
-        channelRef.current?.track({ userId: meUserId, name: meName, lat: c.lat, lng: c.lng })
+        broadcast()
       },
       (err) => setError(err.code === err.PERMISSION_DENIED ? "denied" : err.message),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
     )
     return () => navigator.geolocation.clearWatch(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, meUserId, meName])
 
   // Request location as soon as Discover loads.

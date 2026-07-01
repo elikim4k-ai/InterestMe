@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { MatchCard } from "./match-card"
 import { EventGraph } from "./event-graph"
 import { LocationShareProvider } from "./location-share"
+import { MatchDiagnostics } from "./match-diagnostics"
 import { useEventPresence } from "@/hooks/use-event-presence"
 
 export function DiscoverFeed({
@@ -153,6 +154,7 @@ export function DiscoverFeed({
           <Button variant="outline" onClick={refresh} disabled={refreshing}>
             <RefreshCw className="size-4" /> Check again
           </Button>
+          <MatchDiagnostics eventId={eventId} />
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
