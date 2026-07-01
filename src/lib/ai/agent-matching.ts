@@ -64,6 +64,9 @@ class AgentMatchEngine implements MatchEngine {
     const profiles = await loadAttendeeProfiles(supabase, eventId)
     const me = profiles.find((p) => p.userId === userId)
     const others = profiles.filter((p) => p.userId !== userId)
+    console.log(
+      `[match] event=${eventId} attendees=${profiles.length} others=${others.length}`
+    )
     if (!me || others.length === 0) return []
 
     // Map short ids ↔ userIds — cheaper tokens, no need to expose UUIDs.
@@ -85,6 +88,7 @@ class AgentMatchEngine implements MatchEngine {
     let ranked: z.infer<typeof matchOutputSchema>["matches"]
     try {
       ranked = await rankWithModel(me, candidates)
+      console.log(`[match] model ranked ${ranked.length} candidates`)
     } catch (err) {
       console.error("Agent matching failed, falling back to embeddings:", err)
       ranked = []

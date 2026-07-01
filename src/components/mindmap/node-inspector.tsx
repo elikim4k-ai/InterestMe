@@ -11,9 +11,12 @@ import {
 export function NodeInspector({
   node,
   onClose,
+  action,
 }: {
   node: GraphNode | null
   onClose: () => void
+  /** Optional context action rendered at the bottom (e.g. "Find" on Event Map). */
+  action?: React.ReactNode
 }) {
   return (
     <AnimatePresence>
@@ -60,6 +63,8 @@ export function NodeInspector({
               ))}
             </dl>
           )}
+
+          {action && <div className="mt-4">{action}</div>}
         </motion.div>
       )}
     </AnimatePresence>

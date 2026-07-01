@@ -10,16 +10,31 @@ import {
 } from "@/lib/knowledge/types"
 import { ForceGraph } from "@/components/mindmap/force-graph-3d"
 import { NodeInspector } from "@/components/mindmap/node-inspector"
+import { FindOverlay } from "./find-overlay"
+import { Button } from "@/components/ui/button"
+import { Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Scope = "mine" | "room"
 
-export function EventGraph({ eventId }: { eventId: string }) {
+export function EventGraph({
+  eventId,
+  meUserId,
+  meName,
+}: {
+  eventId: string
+  meUserId: string
+  meName: string
+}) {
   const [scope, setScope] = useState<Scope>("mine")
   const [graph, setGraph] = useState<KnowledgeGraph | null>(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<GraphNode | null>(null)
   const [autoRotate, setAutoRotate] = useState(true)
+  const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
+
+  const canFind =
+    selected && (selected.kind === "person" || selected.kind === "match") && selected.id !== "me"
 
   useEffect(() => {
     let cancelled = false
@@ -70,7 +85,23 @@ export function EventGraph({ eventId }: { eventId: string }) {
             showZoomControls
             distanceByStrength
           />
-          <NodeInspector node={selected} onClose={() => setSelected(null)} />
+          <NodeInspector
+            node={selected}
+            onClose={() => setSelected(null)}
+            action={
+              canFind ? (
+                <Button
+                  size="sm"
+                  variant="gradient"
+                  className="w-full"
+                  onClick={() => setFinding({ userId: selected!.id, name: selected!.label })}
+                >
+                  <Navigation className="size-4" />
+                  Find {selected!.label}
+                </Button>
+              ) : null
+            }
+          />
         </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-center p-6">
@@ -98,6 +129,16 @@ export function EventGraph({ eventId }: { eventId: string }) {
         <LegendDot color={NODE_COLORS.match} label="AI match" />
         <LegendDot color={NODE_COLORS.person} label="Attendee" />
       </div>
+
+      {finding && (
+        <FindOverlay
+          eventId={eventId}
+          meUserId={meUserId}
+          meName={meName}
+          target={finding}
+          onClose={() => setFinding(null)}
+        />
+      )}
     </div>
   )
 }

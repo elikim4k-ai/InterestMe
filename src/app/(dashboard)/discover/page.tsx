@@ -70,6 +70,7 @@ export default async function DiscoverPage({
         eventName={event?.name ?? "this event"}
         initialMatches={matches}
         meName={myProfile?.display_name ?? "You"}
+        meUserId={user.id}
         aiActive={getAIProvider().isLive}
       />
     </div>

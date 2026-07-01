@@ -17,12 +17,14 @@ export function DiscoverFeed({
   eventName,
   initialMatches,
   meName,
+  meUserId,
   aiActive,
 }: {
   eventId: string
   eventName: string
   initialMatches: RecommendationView[]
   meName: string
+  meUserId: string
   aiActive: boolean
 }) {
   const [matches, setMatches] = useState(initialMatches)
@@ -96,7 +98,7 @@ export function DiscoverFeed({
       </div>
 
       {/* Interactive event social graph */}
-      {showMap && <EventGraph eventId={eventId} />}
+      {showMap && <EventGraph eventId={eventId} meUserId={meUserId} meName={meName} />}
 
       {/* Who's here right now (you first) */}
       {roster.length > 0 && (
