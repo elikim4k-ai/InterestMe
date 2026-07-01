@@ -124,7 +124,27 @@ Every tenant-scoped entity carries `organization_id`. Supabase RLS policies enfo
 | 2 ✅ | Profiles, interests, events, questions, QR, join flow |
 | 3 ✅ | AI matching, recommendations, gamification, realtime |
 | 4 ✅ | Knowledge graph + 3D mind map, analytics, AI insights/RAG |
-| 5 | Polish, performance, testing, deployment |
+| 5 ✅ | Testing (Vitest), polish, SEO, deployment (Vercel) |
+
+## Testing (Phase 5)
+
+`npm test` runs the Vitest suite (42 tests) over the **pure, deterministic**
+core — no DB or network needed:
+
+- `ai/scoring.test.ts` — cosine similarity, blended match score, ranking
+- `knowledge/builder.test.ts` — graph shape, no dangling links, truncation
+- `gamification/achievements.test.ts` — unlock thresholds, catalog integrity
+- `ai/provider.test.ts` — deterministic NullProvider embeddings (dimension,
+  normalization, similarity ordering)
+- `ai/insights.test.ts` — RAG fallback grounding
+
+This is why the AI layer was designed pure/deterministic from Phase 3: match
+quality is verifiable without an API key. The suite already caught a real crash
+(`truncate()` on malformed rows) and a prod-build blocker (`new URL("")`).
+
+Also shipped: global error boundary (`app/error.tsx`), custom 404
+(`app/not-found.tsx`), dashboard loading skeleton, and full SEO metadata
+(metadataBase, OpenGraph, Twitter card, robots).
 
 ## Mutation Layer (Phase 2)
 

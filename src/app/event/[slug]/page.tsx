@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { EventJoinPanel } from "@/components/events/event-join-panel"
+import { GuestJoinButton, GuestProfileForm } from "@/components/events/guest-join"
 
 export const dynamic = "force-dynamic"
 
@@ -64,7 +65,7 @@ export default async function PublicEventPage({
     (a: { order: number }, b: { order: number }) => a.order - b.order
   )
 
-  // If logged out, show event preview + sign-in CTA
+  // Logged out → single frictionless "Join" (silent anonymous sign-in). No wall.
   if (!user) {
     return (
       <PublicShell>
@@ -75,22 +76,12 @@ export default async function PublicEventPage({
           startTime={event.start_time}
           attendeeCount={attendeeCount}
         />
-        <div className="space-y-3">
-          <Button size="lg" variant="gradient" className="w-full" asChild>
-            <Link href={`/login?redirectTo=/event/${slug}`}>Sign in to join</Link>
-          </Button>
-          <Button size="lg" variant="outline" className="w-full" asChild>
-            <Link href={`/signup?redirectTo=/event/${slug}`}>Create a free account</Link>
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            {questions.length} questions · Takes ~2 minutes
-          </p>
-        </div>
+        <GuestJoinButton eventSlug={slug} questionCount={questions.length} />
       </PublicShell>
     )
   }
 
-  // Logged in but no profile → onboarding first
+  // Signed in (guest or member) but profile not filled in yet.
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, onboarding_done")
@@ -98,6 +89,22 @@ export default async function PublicEventPage({
     .single()
 
   if (!profile?.onboarding_done) {
+    // Guests complete a lightweight inline profile (name + interests) right here
+    // so they never leave the event. Real accounts use the full wizard.
+    if (user.is_anonymous) {
+      return (
+        <PublicShell>
+          <EventHeader
+            name={event.name}
+            description={event.description}
+            location={event.location}
+            startTime={event.start_time}
+            attendeeCount={attendeeCount}
+          />
+          <GuestProfileForm />
+        </PublicShell>
+      )
+    }
     redirect(`/onboarding?redirectTo=/event/${slug}`)
   }
 

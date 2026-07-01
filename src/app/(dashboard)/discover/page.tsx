@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getMyRecommendations } from "@/lib/actions/recommendations"
 import { Button } from "@/components/ui/button"
 import { DiscoverFeed } from "@/components/discover/discover-feed"
+import { SaveAccountBanner } from "@/components/shared/save-account-banner"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Discover" }
@@ -62,7 +63,8 @@ export default async function DiscoverPage({
   const matches = recsResult.success ? recsResult.data : []
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
+      {user.is_anonymous && <SaveAccountBanner />}
       <DiscoverFeed
         eventId={eventId}
         eventName={event?.name ?? "this event"}
