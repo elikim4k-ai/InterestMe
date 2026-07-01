@@ -72,41 +72,45 @@ export function EventJoinPanel({
     setAnswer(questionId, next.join("|||"))
   }
 
-  async function handleSaveAnswers() {
-    // Validate required
-    const missing = questions.filter(
-      (q) => q.is_required && !answers[q.id]?.trim()
-    )
+  /**
+   * Single next step after filling answers: save them, check in (if needed),
+   * then go discover people. Replaces the separate "Save answers" button.
+   */
+  async function handleDiscover() {
+    const missing = questions.filter((q) => q.is_required && !answers[q.id]?.trim())
     if (missing.length > 0) {
       toast.error(`Please answer: "${missing[0]!.text}"`)
       return
     }
 
     setSaving(true)
-    const result = await submitAnswers({
-      eventId,
-      answers: Object.entries(answers).map(([questionId, answer]) => ({
-        questionId,
-        answer,
-      })),
-    })
-    setSaving(false)
 
-    if (!result.success) {
-      toast.error(result.error)
-      return
+    // Persist answers (skip the call when there's nothing to save).
+    if (Object.keys(answers).length > 0) {
+      const saved = await submitAnswers({
+        eventId,
+        answers: Object.entries(answers).map(([questionId, answer]) => ({
+          questionId,
+          answer,
+        })),
+      })
+      if (!saved.success) {
+        setSaving(false)
+        toast.error(saved.error)
+        return
+      }
     }
-    toast.success("Answers saved ✨")
-    router.refresh()
-  }
 
-  async function handleCheckIn() {
-    const result = await checkInToEvent(eventId)
-    if (!result.success) {
-      toast.error(result.error)
-      return
+    // Check in on first pass.
+    if (!checkedIn) {
+      const result = await checkInToEvent(eventId)
+      if (!result.success) {
+        setSaving(false)
+        toast.error(result.error)
+        return
+      }
     }
-    toast.success("Checked in! Discover people now.")
+
     router.push("/discover")
     router.refresh()
   }
@@ -179,30 +183,21 @@ export function EventJoinPanel({
               </div>
             ))}
 
-            <Button onClick={handleSaveAnswers} loading={saving} className="w-full">
-              Save answers
-            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Check-in / discover */}
-      {!checkedIn ? (
-        <Button
-          size="lg"
-          variant="gradient"
-          className="w-full"
-          onClick={handleCheckIn}
-        >
-          <Sparkles className="size-4" />
-          Check in & discover people
-        </Button>
-      ) : (
-        <Button size="lg" variant="gradient" className="w-full" onClick={() => router.push("/discover")}>
-          <Sparkles className="size-4" />
-          Discover people
-        </Button>
-      )}
+      {/* Single next step: saves answers, checks in, then discovers */}
+      <Button
+        size="lg"
+        variant="gradient"
+        className="w-full"
+        onClick={handleDiscover}
+        loading={saving}
+      >
+        <Sparkles className="size-4" />
+        Discover people
+      </Button>
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CopyLinkButton } from "@/components/events/copy-link-button"
+import { DeleteEventButton } from "@/components/events/delete-event-button"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Manage Event" }
@@ -99,6 +100,10 @@ export default async function ManageEventPage({
               {attendees.length} registered · {checkedIn} checked in
             </span>
           </div>
+        </div>
+
+        <div className="shrink-0">
+          <DeleteEventButton eventId={event.id} eventName={event.name} />
         </div>
       </div>
 
