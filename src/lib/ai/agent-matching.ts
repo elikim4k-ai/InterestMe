@@ -1,37 +1,33 @@
 /**
- * Agent-based matching (Claude / Anthropic Messages API).
+ * Agent-based matching via the AI provider's chat completion (OpenAI).
  *
- * Anthropic has no embeddings API — Claude is a reasoning model. So instead of
- * cosine-similarity ranking, we hand Claude the full set of attendee profiles
- * and have it *reason* about who should meet whom, returning a ranked list with
- * grounded reasons. This is the "evolve into agent-based recommendations" step
- * the MatchEngine interface was designed for in Phase 3.
+ * Rather than ranking by embedding cosine similarity, we hand the model the full
+ * set of attendee profiles and have it *reason* about who should meet whom,
+ * returning a ranked list with grounded reasons. This is the "evolve into
+ * agent-based recommendations" step the MatchEngine interface was designed for.
  *
- * Falls back to the deterministic EmbeddingMatchEngine when no ANTHROPIC_API_KEY
- * is configured or if the model call fails, so matching never hard-breaks.
+ * Runs through the shared getAIProvider() abstraction, so it uses whatever
+ * provider is configured (OpenAI when OPENAI_API_KEY is set). Falls back to the
+ * deterministic EmbeddingMatchEngine when no live provider is available or if
+ * the call fails, so matching never hard-breaks.
  */
 
 import { z } from "zod"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { MatchEngine, MatchResult } from "./matching"
-
-const MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-8"
+import { getAIProvider } from "./provider"
 
 const matchOutputSchema = z.object({
   matches: z
     .array(
       z.object({
-        id: z.string().describe("The candidate id you were given, e.g. 'c0'"),
-        score: z.number().min(0).max(1).describe("Match strength, 0 to 1"),
-        reasons: z
-          .array(z.string())
-          .describe("2-3 short, specific reasons they should meet"),
-        sharedInterests: z
-          .array(z.string())
-          .describe("Interests/topics they genuinely have in common"),
+        id: z.string(),
+        score: z.number().min(0).max(1),
+        reasons: z.array(z.string()),
+        sharedInterests: z.array(z.string()),
       })
     )
-    .describe("Best matches, strongest first"),
+    .default([]),
 })
 
 const SYSTEM = `You are a socially intelligent networking matchmaker at a live event.
@@ -40,7 +36,10 @@ by how valuable a conversation between them would be. Weigh genuine common groun
 (shared interests, complementary goals, related projects) AND productive contrast
 (someone worth meeting from a slightly different angle). For each match give 2-3
 specific, warm reasons grounded ONLY in the provided data — never invent facts.
-Return strongest matches first. Omit anyone who would be a weak, generic match.`
+Return strongest matches first; omit anyone who would be a weak, generic match.
+
+Respond with ONLY a JSON object of this exact shape:
+{"matches":[{"id":"<candidate id>","score":<0..1>,"reasons":["..."],"sharedInterests":["..."]}]}`
 
 interface AttendeeProfile {
   userId: string
@@ -54,7 +53,7 @@ interface AttendeeProfile {
 }
 
 class AgentMatchEngine implements MatchEngine {
-  readonly strategy = "agent-claude-v1"
+  readonly strategy = "agent-openai-v1"
 
   async computeEventMatches(
     supabase: SupabaseClient,
@@ -85,9 +84,14 @@ class AgentMatchEngine implements MatchEngine {
 
     let ranked: z.infer<typeof matchOutputSchema>["matches"]
     try {
-      ranked = await rankWithClaude(me, candidates)
+      ranked = await rankWithModel(me, candidates)
     } catch (err) {
       console.error("Agent matching failed, falling back to embeddings:", err)
+      ranked = []
+    }
+
+    // On empty/failed model output, defer to the deterministic engine.
+    if (ranked.length === 0) {
       const { getEmbeddingMatchEngine } = await import("./matching")
       return getEmbeddingMatchEngine().computeEventMatches(supabase, userId, eventId, limit)
     }
@@ -118,38 +122,11 @@ class AgentMatchEngine implements MatchEngine {
   }
 }
 
-// Raw JSON schema sent to the API (structured outputs). Kept separate from the
-// Zod schema, which we use only to validate the response on our side — avoids
-// coupling to the SDK's Zod-version-specific helper.
-const OUTPUT_JSON_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    matches: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          id: { type: "string" },
-          score: { type: "number" },
-          reasons: { type: "array", items: { type: "string" } },
-          sharedInterests: { type: "array", items: { type: "string" } },
-        },
-        required: ["id", "score", "reasons", "sharedInterests"],
-      },
-    },
-  },
-  required: ["matches"],
-} as const
-
-async function rankWithClaude(
+async function rankWithModel(
   me: AttendeeProfile,
   candidates: Array<{ id: string } & Record<string, unknown>>
 ) {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk")
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
+  const provider = getAIProvider()
   const prompt = JSON.stringify({
     me: {
       name: me.displayName,
@@ -162,16 +139,13 @@ async function rankWithClaude(
     candidates,
   })
 
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 2048,
+  const raw = await provider.complete({
     system: SYSTEM,
-    messages: [{ role: "user", content: prompt }],
-    output_config: { format: { type: "json_schema", schema: OUTPUT_JSON_SCHEMA } },
+    prompt,
+    json: true,
+    temperature: 0.4,
+    maxTokens: 1200,
   })
-
-  const text = res.content.find((b) => b.type === "text")
-  const raw = text && "text" in text ? text.text : ""
   if (!raw) return []
 
   const parsed = matchOutputSchema.safeParse(JSON.parse(raw))
@@ -179,7 +153,7 @@ async function rankWithClaude(
 }
 
 /**
- * Loads every attendee of an event with the rich text Claude needs to reason.
+ * Loads every attendee of an event with the rich text the model needs to reason.
  * One round-trip per relation, joined in memory.
  */
 async function loadAttendeeProfiles(
@@ -257,8 +231,7 @@ export function getAgentMatchEngine(): MatchEngine {
   return _engine
 }
 
-/** Whether a live Anthropic key is configured. */
+/** Whether a live AI provider (OpenAI) is configured for reasoning-based matching. */
 export function isAgentMatchingAvailable(): boolean {
-  const key = process.env.ANTHROPIC_API_KEY
-  return Boolean(key && key.startsWith("sk-ant-"))
+  return getAIProvider().isLive
 }
