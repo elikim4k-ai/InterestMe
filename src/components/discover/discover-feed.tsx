@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react"
 import { AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
-import { RefreshCw, Sparkles, Users } from "lucide-react"
+import { RefreshCw, Sparkles, Users, Network } from "lucide-react"
 import type { RecommendationView } from "@/lib/actions/recommendations"
 import { generateEventRecommendations } from "@/lib/actions/recommendations"
 import { syncAchievements } from "@/lib/actions/gamification"
 import { Button } from "@/components/ui/button"
 import { MatchCard } from "./match-card"
+import { EventGraph } from "./event-graph"
 import { useEventPresence } from "@/hooks/use-event-presence"
 
 export function DiscoverFeed({
@@ -24,6 +25,7 @@ export function DiscoverFeed({
 }) {
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
+  const [showMap, setShowMap] = useState(false)
   const { count: liveCount, people } = useEventPresence(eventId, { name: meName })
   const others = people.filter((p) => p.name !== meName)
 
@@ -67,11 +69,24 @@ export function DiscoverFeed({
             People you should meet at {eventName}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
-          <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showMap ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowMap((s) => !s)}
+          >
+            <Network className="size-4" />
+            {showMap ? "Hide map" : "Event map"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
+            <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      {/* Interactive event social graph */}
+      {showMap && <EventGraph eventId={eventId} />}
 
       {/* Who's here right now */}
       {others.length > 0 && (

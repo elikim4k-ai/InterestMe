@@ -12,6 +12,7 @@ export type GraphNodeKind =
   | "skill"
   | "event"
   | "person"
+  | "match"
 
 export interface GraphNode {
   id: string
@@ -46,6 +47,7 @@ export const NODE_COLORS: Record<GraphNodeKind, string> = {
   skill: "#10b981", // emerald-500
   event: "#3b82f6", // blue-500
   person: "#06b6d4", // cyan-500
+  match: "#ec4899", // pink-500 — an AI-recommended match
 }
 
 export const NODE_KIND_LABEL: Record<GraphNodeKind, string> = {
@@ -57,4 +59,5 @@ export const NODE_KIND_LABEL: Record<GraphNodeKind, string> = {
   skill: "Skill",
   event: "Event",
   person: "Connection",
+  match: "AI Match",
 }
