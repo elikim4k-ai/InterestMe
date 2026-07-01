@@ -56,23 +56,19 @@ export function ForceGraph({
   const containerRef = useRef<HTMLDivElement>(null)
   const [dims, setDims] = useState({ width: 800, height: 600 })
   const [hoverId, setHoverId] = useState<string | null>(null)
-  const angleRef = useRef(0)
-  const distanceRef = useRef(320)
 
+  // Zoom by dollying the camera along its current view vector — plays nicely
+  // with OrbitControls (which also handles wheel/pinch zoom natively).
   function zoom(factor: number) {
-    distanceRef.current = Math.max(70, Math.min(1200, distanceRef.current * factor))
     const fg = fgRef.current
     if (!fg) return
-    const a = angleRef.current
-    fg.cameraPosition(
-      {
-        x: distanceRef.current * Math.sin(a),
-        y: 0,
-        z: distanceRef.current * Math.cos(a),
-      },
-      undefined,
-      200
-    )
+    // No-arg getter returns the current {x,y,z}; not in the typed overloads.
+    const getPos = fg.cameraPosition as unknown as () => { x: number; y: number; z: number }
+    const cam = getPos()
+    const dist = Math.hypot(cam.x, cam.y, cam.z)
+    const clamped = Math.max(70, Math.min(1400, dist * factor))
+    const k = clamped / (dist || 1)
+    fg.cameraPosition({ x: cam.x * k, y: cam.y * k, z: cam.z * k }, undefined, 200)
   }
 
   // Responsive sizing
@@ -109,24 +105,19 @@ export function ForceGraph({
     return adjacency.get(activeId)?.has(nodeId) ?? false
   }
 
-  // Auto-revolving camera orbit (reads the live zoom distance each frame)
+  // Auto-revolve via OrbitControls so wheel/pinch zoom + drag work naturally
+  // alongside it (instead of a rAF loop that overwrites the camera each frame).
   useEffect(() => {
-    if (!autoRotate) return
-    let frame: number
-    const tick = () => {
-      const fg = fgRef.current
-      if (fg) {
-        angleRef.current += 0.0016
-        fg.cameraPosition({
-          x: distanceRef.current * Math.sin(angleRef.current),
-          z: distanceRef.current * Math.cos(angleRef.current),
-        })
-      }
-      frame = requestAnimationFrame(tick)
+    const fg = fgRef.current
+    const controls = fg?.controls() as
+      | { autoRotate?: boolean; autoRotateSpeed?: number; enableZoom?: boolean }
+      | undefined
+    if (controls) {
+      controls.autoRotate = autoRotate
+      controls.autoRotateSpeed = 0.7
+      controls.enableZoom = true
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [autoRotate])
+  }, [autoRotate, dims, graph])
 
   // Pull stronger ties closer: link distance ← (1 - strength)
   useEffect(() => {
@@ -198,6 +189,7 @@ export function ForceGraph({
     <div ref={containerRef} className="absolute inset-0">
       <ForceGraph3D
         ref={fgRef}
+        controlType="orbit"
         width={dims.width}
         height={dims.height}
         graphData={graph}

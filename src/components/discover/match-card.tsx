@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { toast } from "sonner"
-import { Sparkles, UserPlus, MessageCircle, X, Check, Loader2 } from "lucide-react"
+import { Sparkles, UserPlus, MessageCircle, X, Check, Loader2, Navigation } from "lucide-react"
 import type { RecommendationView } from "@/lib/actions/recommendations"
 import { dismissRecommendation } from "@/lib/actions/recommendations"
 import { sendConnectionRequest, getConversationStarters } from "@/lib/actions/connection"
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CompatibilityRing, matchColor } from "./compatibility-ring"
+import { useLocationShare } from "./location-share"
 import { cn } from "@/lib/utils"
 
 export function MatchCard({
@@ -31,6 +32,7 @@ export function MatchCard({
   const [connected, setConnected] = useState(false)
   const [starters, setStarters] = useState<string[] | null>(null)
   const [loadingStarters, setLoadingStarters] = useState(false)
+  const { find } = useLocationShare()
 
   const initials = match.displayName
     .split(" ")
@@ -169,12 +171,20 @@ export function MatchCard({
                 </>
               )}
             </Button>
-            <Button variant="outline" size="icon" onClick={handleStarters} disabled={loadingStarters}>
+            <Button variant="outline" size="icon" onClick={handleStarters} disabled={loadingStarters} aria-label="Conversation starters">
               {loadingStarters ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <MessageCircle className="size-4" />
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`Find ${match.displayName}`}
+              onClick={() => find({ userId: match.recommendedUserId, name: match.displayName })}
+            >
+              <Navigation className="size-4" />
             </Button>
             <Button variant="ghost" size="icon" onClick={handleDismiss} aria-label="Dismiss">
               <X className="size-4" />

@@ -1,0 +1,119 @@
+"use client"
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
+import type { RealtimeChannel } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/client"
+import { FindOverlay } from "./find-overlay"
+
+export interface Coords {
+  lat: number
+  lng: number
+}
+
+interface LocationShareCtx {
+  enabled: boolean
+  error: string | null
+  myCoords: Coords | null
+  positions: Map<string, { name: string } & Coords>
+  enable: () => void
+  find: (target: { userId: string; name: string }) => void
+}
+
+const Ctx = createContext<LocationShareCtx | null>(null)
+
+export function useLocationShare(): LocationShareCtx {
+  const c = useContext(Ctx)
+  if (!c) throw new Error("useLocationShare must be used within LocationShareProvider")
+  return c
+}
+
+/**
+ * Shares the current user's location to a per-event Realtime channel while on
+ * Discover, so others can "Find" them without both parties opening a finder.
+ * Requests location as soon as Discover mounts (per product request). Location
+ * is only broadcast while this provider is mounted (i.e. while on Discover).
+ */
+export function LocationShareProvider({
+  eventId,
+  meUserId,
+  meName,
+  children,
+}: {
+  eventId: string
+  meUserId: string
+  meName: string
+  children: React.ReactNode
+}) {
+  const [enabled, setEnabled] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [myCoords, setMyCoords] = useState<Coords | null>(null)
+  const [positions, setPositions] = useState<Map<string, { name: string } & Coords>>(new Map())
+  const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
+  const channelRef = useRef<RealtimeChannel | null>(null)
+
+  // Subscribe to the shared channel once and track everyone's positions.
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase.channel(`event-locate:${eventId}`, {
+      config: { presence: { key: meUserId } },
+    })
+    channelRef.current = channel
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{ userId: string; name: string; lat: number; lng: number }>()
+        const map = new Map<string, { name: string } & Coords>()
+        for (const entries of Object.values(state)) {
+          const e = entries[0]
+          if (e && typeof e.lat === "number" && typeof e.lng === "number") {
+            map.set(e.userId, { name: e.name, lat: e.lat, lng: e.lng })
+          }
+        }
+        setPositions(map)
+      })
+      .subscribe()
+    return () => {
+      channelRef.current = null
+      supabase.removeChannel(channel)
+    }
+  }, [eventId, meUserId])
+
+  // Watch my location while enabled and broadcast it.
+  useEffect(() => {
+    if (!enabled) return
+    if (!("geolocation" in navigator)) {
+      setError("Your device doesn't support location.")
+      return
+    }
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        setError(null)
+        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setMyCoords(c)
+        channelRef.current?.track({ userId: meUserId, name: meName, lat: c.lat, lng: c.lng })
+      },
+      (err) => setError(err.code === err.PERMISSION_DENIED ? "denied" : err.message),
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+    )
+    return () => navigator.geolocation.clearWatch(id)
+  }, [enabled, meUserId, meName])
+
+  // Request location as soon as Discover loads.
+  useEffect(() => {
+    setEnabled(true)
+  }, [])
+
+  return (
+    <Ctx.Provider
+      value={{ enabled, error, myCoords, positions, enable: () => setEnabled(true), find: setFinding }}
+    >
+      {children}
+      {finding && <FindOverlay target={finding} onClose={() => setFinding(null)} />}
+    </Ctx.Provider>
+  )
+}

@@ -1,82 +1,29 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Navigation, X, Compass, Loader2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-
-interface Coords {
-  lat: number
-  lng: number
-}
+import { useLocationShare, type Coords } from "./location-share"
 
 /**
- * "Warmer / colder" finder. Both people share live location over a Realtime
- * channel; we show approximate distance + a compass arrow pointing toward the
- * target. Indoor GPS is coarse (~5–15m), so this is a playful treasure-hunt,
- * not precise navigation. Location is shared ONLY while this overlay is open.
+ * "Warmer / colder" finder. Reads live positions from LocationShareProvider
+ * (both people are sharing while on Discover) and shows approximate distance +
+ * a compass arrow toward the target. Indoor GPS is coarse (~5–15m), so this is
+ * a playful treasure-hunt, not precise navigation.
  */
 export function FindOverlay({
-  eventId,
-  meUserId,
-  meName,
   target,
   onClose,
 }: {
-  eventId: string
-  meUserId: string
-  meName: string
   target: { userId: string; name: string }
   onClose: () => void
 }) {
-  const [myPos, setMyPos] = useState<Coords | null>(null)
-  const [targetPos, setTargetPos] = useState<Coords | null>(null)
+  const { myCoords, positions, error, enable } = useLocationShare()
   const [heading, setHeading] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [needsCompass, setNeedsCompass] = useState(false)
-  const myPosRef = useRef<Coords | null>(null)
 
-  // Share my location + subscribe to the target's, over a Realtime channel.
-  useEffect(() => {
-    if (!("geolocation" in navigator)) {
-      setError("Your device doesn't support location.")
-      return
-    }
-    const supabase = createClient()
-    const channel = supabase.channel(`event-locate:${eventId}`, {
-      config: { presence: { key: meUserId } },
-    })
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ userId: string; lat: number; lng: number }>()
-        for (const entries of Object.values(state)) {
-          const e = entries[0]
-          if (e && e.userId === target.userId) {
-            setTargetPos({ lat: e.lat, lng: e.lng })
-          }
-        }
-      })
-      .subscribe()
-
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        myPosRef.current = c
-        setMyPos(c)
-        // Broadcast my position to the shared channel.
-        channel.track({ userId: meUserId, name: meName, lat: c.lat, lng: c.lng })
-      },
-      (err) => setError(err.message || "Couldn't get your location. Allow location access."),
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
-    )
-
-    return () => {
-      navigator.geolocation.clearWatch(watchId)
-      supabase.removeChannel(channel)
-    }
-  }, [eventId, meUserId, meName, target.userId])
+  const targetPos = positions.get(target.userId) ?? null
 
   // Device compass heading (best-effort; iOS needs an explicit permission tap).
   useEffect(() => {
@@ -121,9 +68,8 @@ export function FindOverlay({
     }
   }
 
-  const distance = myPos && targetPos ? distanceMeters(myPos, targetPos) : null
-  const bearing = myPos && targetPos ? bearingDeg(myPos, targetPos) : null
-  // Arrow points toward the target relative to where the phone is facing.
+  const distance = myCoords && targetPos ? distanceMeters(myCoords, targetPos) : null
+  const bearing = myCoords && targetPos ? bearingDeg(myCoords, targetPos) : null
   const arrowRotation = bearing != null ? bearing - (heading ?? 0) : 0
   const temp = distance != null ? temperature(distance) : null
 
@@ -132,7 +78,7 @@ export function FindOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 text-white"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-6 text-white"
       style={{ background: temp?.bg ?? "rgba(2,6,23,0.96)" }}
     >
       <button
@@ -146,13 +92,25 @@ export function FindOverlay({
       <p className="text-sm text-white/70">Finding</p>
       <h2 className="text-2xl font-bold mb-8">{target.name}</h2>
 
-      {error ? (
-        <p className="text-center text-white/80 max-w-xs">{error}</p>
+      {error === "denied" ? (
+        <div className="text-center space-y-3 max-w-xs">
+          <p className="text-white/80 text-sm">
+            Location is off. Enable it to find people.
+          </p>
+          <Button variant="secondary" onClick={enable}>
+            Enable location
+          </Button>
+        </div>
+      ) : error ? (
+        <p className="text-center text-white/80 max-w-xs text-sm">{error}</p>
       ) : needsCompass ? (
-        <Button variant="secondary" onClick={enableCompass} className="gap-2">
-          <Compass className="size-4" /> Enable compass
-        </Button>
-      ) : !myPos ? (
+        <div className="text-center space-y-2">
+          <Button variant="secondary" onClick={enableCompass} className="gap-2">
+            <Compass className="size-4" /> Enable compass
+          </Button>
+          <p className="text-xs text-white/60">Lets the arrow point the right way.</p>
+        </div>
+      ) : !myCoords ? (
         <div className="flex items-center gap-2 text-white/80">
           <Loader2 className="size-4 animate-spin" /> Getting your location…
         </div>
@@ -160,12 +118,11 @@ export function FindOverlay({
         <div className="text-center space-y-2">
           <Loader2 className="size-5 animate-spin mx-auto" />
           <p className="text-white/80 max-w-xs text-sm">
-            Waiting for {target.name} to open their finder too. Ask them to tap “Find” on you.
+            Waiting for {target.name} to open Discover so their location is live.
           </p>
         </div>
       ) : (
         <>
-          {/* Compass arrow */}
           <motion.div
             animate={{ rotate: arrowRotation }}
             transition={{ type: "spring", stiffness: 90, damping: 15 }}
@@ -181,11 +138,11 @@ export function FindOverlay({
             <p className="text-lg font-medium mt-2">{temp!.label}</p>
             {heading == null && (
               <p className="text-xs text-white/60 mt-3 max-w-xs">
-                Tip: hold your phone flat and level for the arrow to point true.
+                Hold your phone flat and level for the arrow to point true.
               </p>
             )}
             <p className="text-[11px] text-white/50 mt-4 max-w-xs">
-              Location is approximate (GPS). Shared only while this screen is open.
+              Location is approximate (GPS), shared only while you&apos;re on Discover.
             </p>
           </div>
         </>

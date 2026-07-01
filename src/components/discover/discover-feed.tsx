@@ -10,6 +10,7 @@ import { syncAchievements } from "@/lib/actions/gamification"
 import { Button } from "@/components/ui/button"
 import { MatchCard } from "./match-card"
 import { EventGraph } from "./event-graph"
+import { LocationShareProvider } from "./location-share"
 import { useEventPresence } from "@/hooks/use-event-presence"
 
 export function DiscoverFeed({
@@ -59,6 +60,7 @@ export function DiscoverFeed({
   }
 
   return (
+    <LocationShareProvider eventId={eventId} meUserId={meUserId} meName={meName}>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -98,7 +100,7 @@ export function DiscoverFeed({
       </div>
 
       {/* Interactive event social graph */}
-      {showMap && <EventGraph eventId={eventId} meUserId={meUserId} meName={meName} />}
+      {showMap && <EventGraph eventId={eventId} />}
 
       {/* Who's here right now (you first) */}
       {roster.length > 0 && (
@@ -157,5 +159,6 @@ export function DiscoverFeed({
         </div>
       )}
     </div>
+    </LocationShareProvider>
   )
 }
