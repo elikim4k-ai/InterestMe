@@ -101,7 +101,7 @@ export default async function PublicEventPage({
             startTime={event.start_time}
             attendeeCount={attendeeCount}
           />
-          <GuestProfileForm />
+          <GuestProfileForm eventId={event.id} />
         </PublicShell>
       )
     }

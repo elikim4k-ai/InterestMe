@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { parseEmbedding } from "./embeddings"
 import { scoreMatch, rankMatches, type ScoringProfile, type ScoredMatch } from "./scoring"
+import { isAgentMatchingAvailable, getAgentMatchEngine } from "./agent-matching"
 
 export interface MatchResult extends ScoredMatch {
   displayName: string
@@ -153,9 +154,19 @@ function flattenNamed(rows: unknown, relation: string, field: string): string[] 
 
 // ─── Singleton ───────────────────────────────────────────────────────────────
 
-let _engine: MatchEngine | null = null
+let _embeddingEngine: EmbeddingMatchEngine | null = null
 
+/** The deterministic embedding engine — also the fallback for agent matching. */
+export function getEmbeddingMatchEngine(): MatchEngine {
+  if (!_embeddingEngine) _embeddingEngine = new EmbeddingMatchEngine()
+  return _embeddingEngine
+}
+
+/**
+ * Returns the best available engine: Claude-powered agent matching when an
+ * Anthropic key is configured, otherwise the deterministic embedding engine.
+ * Both satisfy MatchEngine, so callers never change.
+ */
 export function getMatchEngine(): MatchEngine {
-  if (!_engine) _engine = new EmbeddingMatchEngine()
-  return _engine
+  return isAgentMatchingAvailable() ? getAgentMatchEngine() : getEmbeddingMatchEngine()
 }

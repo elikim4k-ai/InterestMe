@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Sparkles } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { completeOnboarding } from "@/lib/actions/profile"
+import { joinEvent } from "@/lib/actions/event"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -95,7 +96,7 @@ export function GuestJoinButton({
  * Lightweight guest profile: name + interests only. Reuses completeOnboarding
  * (goals empty) so guests flow through the exact same validated path as members.
  */
-export function GuestProfileForm() {
+export function GuestProfileForm({ eventId }: { eventId: string }) {
   const router = useRouter()
   const [name, setName] = useState("")
   const [interests, setInterests] = useState<string[]>([])
@@ -122,11 +123,15 @@ export function GuestProfileForm() {
       interests,
       goals: [],
     })
-    setSubmitting(false)
     if (!result.success) {
+      setSubmitting(false)
       toast.error(result.error)
       return
     }
+    // Auto-join: they already committed by tapping "Join this event" — skip the
+    // redundant second join button and take them straight to the questions.
+    await joinEvent(eventId)
+    setSubmitting(false)
     router.refresh()
   }
 
