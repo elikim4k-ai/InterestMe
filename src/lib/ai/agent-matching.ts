@@ -7,9 +7,9 @@
  * agent-based recommendations" step the MatchEngine interface was designed for.
  *
  * Runs through the shared getAIProvider() abstraction, so it uses whatever
- * provider is configured (OpenAI when OPENAI_API_KEY is set). Falls back to the
- * deterministic EmbeddingMatchEngine when no live provider is available or if
- * the call fails, so matching never hard-breaks.
+ * provider is configured (Gemini, OpenAI, …). Falls back to the deterministic
+ * EmbeddingMatchEngine when no live provider is available or the call fails, so
+ * matching never hard-breaks.
  */
 
 import { z } from "zod"
@@ -53,7 +53,7 @@ interface AttendeeProfile {
 }
 
 class AgentMatchEngine implements MatchEngine {
-  readonly strategy = "agent-openai-v1"
+  readonly strategy = "agent-llm-v1"
 
   async computeEventMatches(
     supabase: SupabaseClient,
