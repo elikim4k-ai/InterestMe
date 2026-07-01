@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { EventJoinPanel } from "@/components/events/event-join-panel"
 import { GuestJoinButton, GuestProfileForm } from "@/components/events/guest-join"
+import { GuestResetLink } from "@/components/events/guest-reset-link"
 
 export const dynamic = "force-dynamic"
 
@@ -102,6 +103,7 @@ export default async function PublicEventPage({
             attendeeCount={attendeeCount}
           />
           <GuestProfileForm eventId={event.id} />
+          <GuestResetLink />
         </PublicShell>
       )
     }
@@ -140,6 +142,7 @@ export default async function PublicEventPage({
         questions={questions}
         existingAnswers={existingAnswers}
       />
+      {user.is_anonymous && <GuestResetLink />}
     </PublicShell>
   )
 }
