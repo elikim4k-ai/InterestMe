@@ -67,6 +67,8 @@ export function EventGraph({ eventId }: { eventId: string }) {
             onSelect={setSelected}
             selectedId={selected?.id ?? null}
             autoRotate={autoRotate}
+            showZoomControls
+            distanceByStrength
           />
           <NodeInspector node={selected} onClose={() => setSelected(null)} />
         </>
@@ -91,8 +93,8 @@ export function EventGraph({ eventId }: { eventId: string }) {
         </button>
       )}
 
-      {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-10 flex gap-3">
+      {/* Legend (bottom-center to avoid the revolve + zoom controls) */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-3">
         <LegendDot color={NODE_COLORS.match} label="AI match" />
         <LegendDot color={NODE_COLORS.person} label="Attendee" />
       </div>

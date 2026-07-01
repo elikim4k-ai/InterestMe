@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Sparkles } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { getMyRecommendations } from "@/lib/actions/recommendations"
+import { getAIProvider } from "@/lib/ai/provider"
 import { Button } from "@/components/ui/button"
 import { DiscoverFeed } from "@/components/discover/discover-feed"
 import { SaveAccountBanner } from "@/components/shared/save-account-banner"
@@ -69,6 +70,7 @@ export default async function DiscoverPage({
         eventName={event?.name ?? "this event"}
         initialMatches={matches}
         meName={myProfile?.display_name ?? "You"}
+        aiActive={getAIProvider().isLive}
       />
     </div>
   )

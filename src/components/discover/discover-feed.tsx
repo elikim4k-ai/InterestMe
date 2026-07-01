@@ -17,11 +17,13 @@ export function DiscoverFeed({
   eventName,
   initialMatches,
   meName,
+  aiActive,
 }: {
   eventId: string
   eventName: string
   initialMatches: RecommendationView[]
   meName: string
+  aiActive: boolean
 }) {
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
@@ -71,6 +73,11 @@ export function DiscoverFeed({
             <Sparkles className="size-3.5 text-violet-500" />
             People you should meet at {eventName}
           </p>
+          {aiActive && (
+            <span className="inline-flex items-center gap-1 mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <Sparkles className="size-3" /> AI matching active
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -135,12 +142,13 @@ export function DiscoverFeed({
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           <AnimatePresence mode="popLayout">
-            {matches.map((m) => (
+            {matches.map((m, i) => (
               <MatchCard
                 key={m.recommendedUserId}
                 eventId={eventId}
                 match={m}
                 onRemoved={removeMatch}
+                rank={i}
               />
             ))}
           </AnimatePresence>

@@ -30,6 +30,8 @@ export interface GraphLink {
   target: string
   /** Relationship label, e.g. "interested_in", "building", "attended". */
   relationship: string
+  /** 0..1 tie strength (e.g. match score). Higher = drawn closer together. */
+  strength?: number
 }
 
 export interface KnowledgeGraph {

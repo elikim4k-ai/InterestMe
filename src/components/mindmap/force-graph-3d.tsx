@@ -38,14 +38,42 @@ interface ForceGraphProps {
   onSelect: (node: GraphNode | null) => void
   selectedId: string | null
   autoRotate: boolean
+  /** Render +/- zoom buttons (bottom-right). */
+  showZoomControls?: boolean
+  /** Use per-link `strength` to pull stronger ties closer together. */
+  distanceByStrength?: boolean
 }
 
-export function ForceGraph({ graph, onSelect, selectedId, autoRotate }: ForceGraphProps) {
+export function ForceGraph({
+  graph,
+  onSelect,
+  selectedId,
+  autoRotate,
+  showZoomControls,
+  distanceByStrength,
+}: ForceGraphProps) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dims, setDims] = useState({ width: 800, height: 600 })
   const [hoverId, setHoverId] = useState<string | null>(null)
   const angleRef = useRef(0)
+  const distanceRef = useRef(320)
+
+  function zoom(factor: number) {
+    distanceRef.current = Math.max(70, Math.min(1200, distanceRef.current * factor))
+    const fg = fgRef.current
+    if (!fg) return
+    const a = angleRef.current
+    fg.cameraPosition(
+      {
+        x: distanceRef.current * Math.sin(a),
+        y: 0,
+        z: distanceRef.current * Math.cos(a),
+      },
+      undefined,
+      200
+    )
+  }
 
   // Responsive sizing
   useEffect(() => {
@@ -81,18 +109,17 @@ export function ForceGraph({ graph, onSelect, selectedId, autoRotate }: ForceGra
     return adjacency.get(activeId)?.has(nodeId) ?? false
   }
 
-  // Auto-revolving camera orbit
+  // Auto-revolving camera orbit (reads the live zoom distance each frame)
   useEffect(() => {
     if (!autoRotate) return
-    const distance = 320
     let frame: number
     const tick = () => {
       const fg = fgRef.current
       if (fg) {
         angleRef.current += 0.0016
         fg.cameraPosition({
-          x: distance * Math.sin(angleRef.current),
-          z: distance * Math.cos(angleRef.current),
+          x: distanceRef.current * Math.sin(angleRef.current),
+          z: distanceRef.current * Math.cos(angleRef.current),
         })
       }
       frame = requestAnimationFrame(tick)
@@ -100,6 +127,18 @@ export function ForceGraph({ graph, onSelect, selectedId, autoRotate }: ForceGra
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [autoRotate])
+
+  // Pull stronger ties closer: link distance ← (1 - strength)
+  useEffect(() => {
+    if (!distanceByStrength) return
+    const fg = fgRef.current
+    const linkForce = fg?.d3Force("link") as
+      | { distance: (fn: (l: { strength?: number }) => number) => void }
+      | undefined
+    if (linkForce && typeof linkForce.distance === "function") {
+      linkForce.distance((l) => 34 + (1 - (l.strength ?? 0.15)) * 130)
+    }
+  }, [distanceByStrength, graph])
 
   // Initial camera framing
   useEffect(() => {
@@ -208,6 +247,25 @@ export function ForceGraph({ graph, onSelect, selectedId, autoRotate }: ForceGra
         }}
         onBackgroundClick={() => onSelect(null)}
       />
+
+      {showZoomControls && (
+        <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1.5">
+          <button
+            onClick={() => zoom(0.8)}
+            aria-label="Zoom in"
+            className="size-8 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-lg font-bold flex items-center justify-center transition-colors"
+          >
+            +
+          </button>
+          <button
+            onClick={() => zoom(1.25)}
+            aria-label="Zoom out"
+            className="size-8 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-lg font-bold flex items-center justify-center transition-colors"
+          >
+            −
+          </button>
+        </div>
+      )}
     </div>
   )
 }

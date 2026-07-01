@@ -45,20 +45,24 @@ export async function getEventGraph(
 
   const me = byUser.get(userId)
 
-  // My persisted (non-dismissed) recommendations → the match set.
+  // My persisted (non-dismissed) recommendations → the match set (with scores).
   const { data: recs } = await supabase
     .from("recommendations")
-    .select("recommended_user_id, shared_interests, dismissed")
+    .select("recommended_user_id, shared_interests, score, dismissed")
     .eq("event_id", eventId)
     .eq("user_id", userId)
     .eq("dismissed", false)
 
-  const matches = new Map<string, string[]>()
+  const matches = new Map<string, { shared: string[]; score: number }>()
   for (const r of (recs ?? []) as Array<{
     recommended_user_id: string
     shared_interests: string[] | null
+    score: number
   }>) {
-    matches.set(r.recommended_user_id, r.shared_interests ?? [])
+    matches.set(r.recommended_user_id, {
+      shared: r.shared_interests ?? [],
+      score: r.score ?? 0,
+    })
   }
 
   const attendees: EventAttendee[] = userIds

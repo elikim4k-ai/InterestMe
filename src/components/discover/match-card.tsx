@@ -11,17 +11,22 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CompatibilityRing } from "./compatibility-ring"
+import { CompatibilityRing, matchColor } from "./compatibility-ring"
+import { cn } from "@/lib/utils"
 
 export function MatchCard({
   eventId,
   match,
   onRemoved,
+  rank,
 }: {
   eventId: string
   match: RecommendationView
   onRemoved: (userId: string) => void
+  rank: number
 }) {
+  const isTop = rank < 3
+  const accent = matchColor(match.score)
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
   const [starters, setStarters] = useState<string[] | null>(null)
@@ -67,7 +72,22 @@ export function MatchCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
     >
-      <Card className="overflow-hidden">
+      <Card
+        className={cn("overflow-hidden relative transition-shadow", isTop && "border-transparent")}
+        style={
+          isTop
+            ? { boxShadow: `0 0 0 2px ${accent}, 0 0 18px -2px ${accent}` }
+            : undefined
+        }
+      >
+        {isTop && (
+          <div
+            className="absolute top-0 right-0 text-[10px] font-bold text-white px-2 py-0.5 rounded-bl-lg z-10"
+            style={{ backgroundColor: accent }}
+          >
+            🔥 TOP {rank + 1}
+          </div>
+        )}
         <CardContent className="p-5 space-y-4">
           <div className="flex items-start gap-4">
             <Avatar className="size-14 border-2 border-background shadow-sm">

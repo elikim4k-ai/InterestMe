@@ -16,13 +16,18 @@ export interface EventAttendee {
   interests: string[]
 }
 
+export interface MatchInfo {
+  shared: string[]
+  score: number
+}
+
 export interface EventGraphInput {
   meUserId: string
   meName: string
   meInterests: string[]
   attendees: EventAttendee[] // excludes me
-  /** userId → shared interests, for people the AI matched me with. */
-  matches: Map<string, string[]>
+  /** userId → match info, for people the AI matched me with. */
+  matches: Map<string, MatchInfo>
   scope: "mine" | "room"
 }
 
@@ -48,15 +53,18 @@ export function buildEventGraph(input: EventGraphInput): KnowledgeGraph {
   const matchedIds = new Set(input.matches.keys())
 
   if (input.scope === "mine") {
-    // You → each matched person.
-    for (const [userId, shared] of input.matches.entries()) {
+    // You → each matched person. Higher score → node is larger + drawn closer.
+    for (const [userId, info] of input.matches.entries()) {
       const person = input.attendees.find((a) => a.userId === userId)
       if (!person) continue
-      nodes.push(personNode(person, true))
+      nodes.push(personNode(person, true, info.score))
       links.push({
         source: ME_ID,
         target: userId,
-        relationship: shared.length ? `shares ${shared.slice(0, 3).join(", ")}` : "matched",
+        relationship: info.shared.length
+          ? `shares ${info.shared.slice(0, 3).join(", ")}`
+          : "matched",
+        strength: info.score,
       })
     }
     return { nodes, links }
@@ -64,19 +72,20 @@ export function buildEventGraph(input: EventGraphInput): KnowledgeGraph {
 
   // scope === "room": every attendee is a node.
   for (const a of input.attendees) {
-    nodes.push(personNode(a, matchedIds.has(a.userId)))
+    nodes.push(personNode(a, matchedIds.has(a.userId), input.matches.get(a.userId)?.score))
   }
 
-  // Edge from me to anyone I share an interest with.
+  // Edge from me to anyone I share an interest with (matched → closer).
   for (const a of input.attendees) {
     const shared = sharedInterests(input.meInterests, a.interests)
-    if (shared.length > 0 || matchedIds.has(a.userId)) {
-      const matchShared = input.matches.get(a.userId)
-      const label = (matchShared && matchShared.length ? matchShared : shared).slice(0, 3)
+    const match = input.matches.get(a.userId)
+    if (shared.length > 0 || match) {
+      const label = (match?.shared.length ? match.shared : shared).slice(0, 3)
       links.push({
         source: ME_ID,
         target: a.userId,
         relationship: label.length ? `shares ${label.join(", ")}` : "at this event",
+        strength: match?.score ?? 0.15,
       })
     }
   }
@@ -103,12 +112,16 @@ export function buildEventGraph(input: EventGraphInput): KnowledgeGraph {
   return { nodes, links }
 }
 
-function personNode(a: EventAttendee, isMatch: boolean): GraphNode {
+function personNode(a: EventAttendee, isMatch: boolean, score?: number): GraphNode {
+  const base = isMatch ? 0.4 : 0.3
   return {
     id: a.userId,
     label: a.name,
     kind: isMatch ? "match" : "person",
-    val: isMatch ? 0.5 : 0.35,
-    description: a.interests.length ? `Interested in ${a.interests.slice(0, 5).join(", ")}` : undefined,
+    val: base + (score ?? 0) * 0.4, // stronger matches render larger
+    description: a.interests.length
+      ? `Interested in ${a.interests.slice(0, 5).join(", ")}`
+      : undefined,
+    meta: score !== undefined ? { match: `${Math.round(score * 100)}%` } : undefined,
   }
 }
