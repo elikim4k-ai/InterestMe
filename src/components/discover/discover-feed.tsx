@@ -26,8 +26,11 @@ export function DiscoverFeed({
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
   const [showMap, setShowMap] = useState(false)
-  const { count: liveCount, people } = useEventPresence(eventId, { name: meName })
-  const others = people.filter((p) => p.name !== meName)
+  const { count: liveCount, people, selfKey } = useEventPresence(eventId, { name: meName })
+  // Show yourself first (labeled), then everyone else.
+  const self = people.find((p) => p.key === selfKey)
+  const others = people.filter((p) => p.key !== selfKey)
+  const roster = self ? [{ ...self, isSelf: true }, ...others.map((p) => ({ ...p, isSelf: false }))] : others.map((p) => ({ ...p, isSelf: false }))
 
   function removeMatch(userId: string) {
     setMatches((prev) => prev.filter((m) => m.recommendedUserId !== userId))
@@ -88,23 +91,31 @@ export function DiscoverFeed({
       {/* Interactive event social graph */}
       {showMap && <EventGraph eventId={eventId} />}
 
-      {/* Who's here right now */}
-      {others.length > 0 && (
+      {/* Who's here right now (you first) */}
+      {roster.length > 0 && (
         <div className="rounded-2xl border bg-muted/30 p-4">
           <p className="text-xs font-medium text-muted-foreground mb-2.5 flex items-center gap-1.5">
             <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Here right now
           </p>
           <div className="flex flex-wrap gap-2">
-            {others.map((p) => (
+            {roster.map((p) => (
               <div
                 key={p.key}
-                className="flex items-center gap-1.5 rounded-full bg-background border pl-1 pr-3 py-1"
+                className={
+                  "flex items-center gap-1.5 rounded-full border pl-1 pr-3 py-1 " +
+                  (p.isSelf
+                    ? "bg-violet-50 dark:bg-violet-950/30 border-violet-300 dark:border-violet-700"
+                    : "bg-background")
+                }
               >
                 <span className="size-6 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 text-white text-[10px] font-semibold flex items-center justify-center">
                   {p.name.slice(0, 2).toUpperCase()}
                 </span>
-                <span className="text-sm">{p.name}</span>
+                <span className="text-sm">
+                  {p.name}
+                  {p.isSelf && <span className="text-muted-foreground"> (you)</span>}
+                </span>
               </div>
             ))}
           </div>

@@ -16,13 +16,14 @@ export interface PresentPerson {
 export function useEventPresence(
   eventId: string,
   me?: { name: string }
-): { count: number; people: PresentPerson[] } {
+): { count: number; people: PresentPerson[]; selfKey: string } {
   const [people, setPeople] = useState<PresentPerson[]>([])
+  const [selfKey] = useState(() => crypto.randomUUID())
 
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
-    const myKey = crypto.randomUUID()
+    const myKey = selfKey
 
     const channel = supabase.channel(`event-presence:${eventId}`, {
       config: { presence: { key: myKey } },
@@ -48,7 +49,7 @@ export function useEventPresence(
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [eventId, me?.name])
+  }, [eventId, me?.name, selfKey])
 
-  return { count: people.length, people }
+  return { count: people.length, people, selfKey }
 }

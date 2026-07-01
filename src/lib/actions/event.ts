@@ -184,15 +184,6 @@ export async function submitAnswers(input: unknown): Promise<ActionResult> {
     if (error) return fail(error.message)
   }
 
-  // Answers materially change a person's match profile → refresh embedding.
-  // Best-effort: never block answer submission on embedding success.
-  try {
-    const { refreshMyEmbedding } = await import("./recommendations")
-    await refreshMyEmbedding()
-  } catch {
-    /* non-fatal */
-  }
-
   revalidatePath(`/event`)
   return ok(undefined)
 }

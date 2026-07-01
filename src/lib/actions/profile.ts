@@ -196,13 +196,8 @@ export async function completeOnboarding(input: {
   const goalResult = await setGoals(input.goals)
   if (!goalResult.success) return goalResult
 
-  // Seed the user's embedding so they get matches at their first event.
-  try {
-    const { refreshMyEmbedding } = await import("./recommendations")
-    await refreshMyEmbedding()
-  } catch {
-    /* non-fatal */
-  }
+  // (Embeddings are computed lazily by the match engine when needed — kept off
+  // this critical path so onboarding stays fast.)
 
   revalidatePath("/dashboard")
   return ok(undefined)
