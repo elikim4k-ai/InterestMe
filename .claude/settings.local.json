@@ -16,7 +16,14 @@
       "Bash(git remote *)",
       "Bash(git push *)",
       "Bash(git ls-remote *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "PowerShell(*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

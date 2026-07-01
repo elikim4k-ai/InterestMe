@@ -13,7 +13,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
+/** Resolve a valid absolute base URL; tolerate empty/invalid env values. */
+function resolveAppUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (raw) {
+    try {
+      return new URL(raw).toString()
+    } catch {
+      /* fall through to default */
+    }
+  }
+  return "http://localhost:3000"
+}
+
+const appUrl = resolveAppUrl()
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: {
     default: "InterestMe — Discover people, not profiles",
     template: "%s | InterestMe",
@@ -24,10 +40,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "InterestMe",
+    url: appUrl,
     title: "InterestMe — Discover people, not profiles",
-    description:
-      "Transform networking events into genuine human connections.",
+    description: "Transform networking events into genuine human connections.",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "InterestMe — Discover people, not profiles",
+    description: "Transform networking events into genuine human connections.",
+  },
+  robots: { index: true, follow: true },
 }
 
 export const viewport: Viewport = {

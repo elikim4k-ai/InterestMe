@@ -145,5 +145,6 @@ export function buildKnowledgeGraph(data: GraphSourceData): KnowledgeGraph {
 }
 
 function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+  const str = String(s ?? "")
+  return str.length > max ? `${str.slice(0, max - 1)}…` : str
 }
