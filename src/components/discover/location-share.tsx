@@ -16,11 +16,17 @@ export interface Coords {
   lng: number
 }
 
+export interface PositionInfo extends Coords {
+  name: string
+  accuracy: number
+}
+
 interface LocationShareCtx {
   enabled: boolean
   error: string | null
   myCoords: Coords | null
-  positions: Map<string, { name: string } & Coords>
+  myAccuracy: number | null
+  positions: Map<string, PositionInfo>
   enable: () => void
   find: (target: { userId: string; name: string }) => void
 }
@@ -53,17 +59,24 @@ export function LocationShareProvider({
   const [enabled, setEnabled] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [myCoords, setMyCoords] = useState<Coords | null>(null)
-  const [positions, setPositions] = useState<Map<string, { name: string } & Coords>>(new Map())
+  const [myAccuracy, setMyAccuracy] = useState<number | null>(null)
+  const [positions, setPositions] = useState<Map<string, PositionInfo>>(new Map())
   const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const subscribedRef = useRef(false)
-  const latestCoordsRef = useRef<Coords | null>(null)
+  const latestRef = useRef<(Coords & { accuracy: number }) | null>(null)
 
   // Broadcast my latest coords — only meaningful once the channel is subscribed.
   function broadcast() {
-    const c = latestCoordsRef.current
+    const c = latestRef.current
     if (c && subscribedRef.current) {
-      channelRef.current?.track({ userId: meUserId, name: meName, lat: c.lat, lng: c.lng })
+      channelRef.current?.track({
+        userId: meUserId,
+        name: meName,
+        lat: c.lat,
+        lng: c.lng,
+        accuracy: c.accuracy,
+      })
     }
   }
 
@@ -76,12 +89,23 @@ export function LocationShareProvider({
     channelRef.current = channel
     channel
       .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ userId: string; name: string; lat: number; lng: number }>()
-        const map = new Map<string, { name: string } & Coords>()
+        const state = channel.presenceState<{
+          userId: string
+          name: string
+          lat: number
+          lng: number
+          accuracy?: number
+        }>()
+        const map = new Map<string, PositionInfo>()
         for (const entries of Object.values(state)) {
           const e = entries[0]
           if (e && typeof e.lat === "number" && typeof e.lng === "number") {
-            map.set(e.userId, { name: e.name, lat: e.lat, lng: e.lng })
+            map.set(e.userId, {
+              name: e.name,
+              lat: e.lat,
+              lng: e.lng,
+              accuracy: e.accuracy ?? 999,
+            })
           }
         }
         setPositions(map)
@@ -111,12 +135,14 @@ export function LocationShareProvider({
       (pos) => {
         setError(null)
         const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        latestCoordsRef.current = c
+        latestRef.current = { ...c, accuracy: pos.coords.accuracy }
         setMyCoords(c)
+        setMyAccuracy(pos.coords.accuracy)
         broadcast()
       },
       (err) => setError(err.code === err.PERMISSION_DENIED ? "denied" : err.message),
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+      // maximumAge: 0 forces a fresh fix each update (avoids stale cached coords).
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     )
     return () => navigator.geolocation.clearWatch(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,7 +155,15 @@ export function LocationShareProvider({
 
   return (
     <Ctx.Provider
-      value={{ enabled, error, myCoords, positions, enable: () => setEnabled(true), find: setFinding }}
+      value={{
+        enabled,
+        error,
+        myCoords,
+        myAccuracy,
+        positions,
+        enable: () => setEnabled(true),
+        find: setFinding,
+      }}
     >
       {children}
       {finding && <FindOverlay target={finding} onClose={() => setFinding(null)} />}

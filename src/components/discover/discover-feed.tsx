@@ -102,6 +102,11 @@ export function DiscoverFeed({
         </div>
       </div>
 
+      {/* Always-available match diagnostics */}
+      <div className="text-center">
+        <MatchDiagnostics eventId={eventId} />
+      </div>
+
       {/* Interactive event social graph */}
       {showMap && <EventGraph eventId={eventId} />}
 
@@ -154,7 +159,6 @@ export function DiscoverFeed({
           <Button variant="outline" onClick={refresh} disabled={refreshing}>
             <RefreshCw className="size-4" /> Check again
           </Button>
-          <MatchDiagnostics eventId={eventId} />
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">

@@ -19,7 +19,7 @@ export function FindOverlay({
   target: { userId: string; name: string }
   onClose: () => void
 }) {
-  const { myCoords, positions, error, enable } = useLocationShare()
+  const { myCoords, myAccuracy, positions, error, enable } = useLocationShare()
   const [heading, setHeading] = useState<number | null>(null)
   const [needsCompass, setNeedsCompass] = useState(false)
 
@@ -71,7 +71,10 @@ export function FindOverlay({
   const distance = myCoords && targetPos ? distanceMeters(myCoords, targetPos) : null
   const bearing = myCoords && targetPos ? bearingDeg(myCoords, targetPos) : null
   const arrowRotation = bearing != null ? bearing - (heading ?? 0) : 0
+  // Combined GPS uncertainty (yours + theirs) — the real margin on the distance.
+  const uncertainty = Math.round((myAccuracy ?? 0) + (targetPos?.accuracy ?? 0))
   const temp = distance != null ? temperature(distance) : null
+  const poorSignal = uncertainty > 60
 
   return (
     <motion.div
@@ -134,8 +137,17 @@ export function FindOverlay({
           </motion.div>
 
           <div className="text-center">
-            <p className="text-5xl font-bold tabular-nums">{formatDistance(distance!)}</p>
+            <p className="text-5xl font-bold tabular-nums">≈ {formatDistance(distance!)}</p>
+            {uncertainty > 0 && (
+              <p className="text-xs text-white/70 mt-1">± {uncertainty} m (GPS margin)</p>
+            )}
             <p className="text-lg font-medium mt-2">{temp!.label}</p>
+            {poorSignal && (
+              <p className="text-xs text-amber-200 mt-2 max-w-xs">
+                Weak GPS here — the distance may jump around. It&apos;s most reliable
+                outdoors or near a window.
+              </p>
+            )}
             {heading == null && (
               <p className="text-xs text-white/60 mt-3 max-w-xs">
                 Hold your phone flat and level for the arrow to point true.
@@ -181,10 +193,11 @@ function formatDistance(m: number): string {
 }
 
 function temperature(m: number): { label: string; bg: string } {
-  if (m < 3) return { label: "You found them! 🎉", bg: "rgba(16,185,129,0.95)" }
-  if (m < 10) return { label: "Very warm 🔥", bg: "rgba(239,68,68,0.9)" }
-  if (m < 25) return { label: "Warm", bg: "rgba(249,115,22,0.9)" }
-  if (m < 60) return { label: "Getting closer", bg: "rgba(234,179,8,0.9)" }
-  if (m < 150) return { label: "Cool", bg: "rgba(59,130,246,0.9)" }
+  // Thresholds widened to match GPS reality (it can't resolve <~5–10m reliably).
+  if (m < 10) return { label: "You're right by them! 🎉", bg: "rgba(16,185,129,0.95)" }
+  if (m < 25) return { label: "Very warm 🔥", bg: "rgba(239,68,68,0.9)" }
+  if (m < 50) return { label: "Warm", bg: "rgba(249,115,22,0.9)" }
+  if (m < 100) return { label: "Getting closer", bg: "rgba(234,179,8,0.9)" }
+  if (m < 250) return { label: "Cool", bg: "rgba(59,130,246,0.9)" }
   return { label: "Cold — keep looking", bg: "rgba(37,99,235,0.92)" }
 }
