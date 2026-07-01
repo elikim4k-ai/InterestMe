@@ -54,13 +54,23 @@ export default async function DiscoverPage({
     )
   }
 
-  const [{ data: event }, { data: myProfile }, recsResult] = await Promise.all([
-    supabase.from("events").select("name").eq("id", eventId).single(),
-    supabase.from("profiles").select("display_name").eq("user_id", user.id).single(),
-    getMyRecommendations(eventId),
-  ])
+  const [{ data: event }, { data: myProfile }, otherAttendeesResult, recsResult] =
+    await Promise.all([
+      supabase.from("events").select("name").eq("id", eventId).single(),
+      supabase.from("profiles").select("display_name").eq("user_id", user.id).single(),
+      // How many OTHER attendees are visible to me (respects RLS — exactly what
+      // the match engine can see). A key diagnostic: 0 here means matching can't
+      // work regardless of the AI provider.
+      supabase
+        .from("event_attendees")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .neq("user_id", user.id),
+      getMyRecommendations(eventId),
+    ])
 
   const matches = recsResult.success ? recsResult.data : []
+  const otherAttendees = otherAttendeesResult.count ?? 0
 
   return (
     <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
@@ -72,6 +82,7 @@ export default async function DiscoverPage({
         meName={myProfile?.display_name ?? "You"}
         meUserId={user.id}
         aiActive={getAIProvider().isLive}
+        otherAttendees={otherAttendees}
       />
     </div>
   )

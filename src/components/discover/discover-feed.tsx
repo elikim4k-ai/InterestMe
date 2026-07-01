@@ -20,6 +20,7 @@ export function DiscoverFeed({
   meName,
   meUserId,
   aiActive,
+  otherAttendees,
 }: {
   eventId: string
   eventName: string
@@ -27,6 +28,7 @@ export function DiscoverFeed({
   meName: string
   meUserId: string
   aiActive: boolean
+  otherAttendees: number
 }) {
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
@@ -136,9 +138,18 @@ export function DiscoverFeed({
       {matches.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <Users className="size-10 mx-auto text-muted-foreground" />
-          <p className="text-muted-foreground">
-            No matches yet. As more people join and answer questions, your matches will appear here.
-          </p>
+          {otherAttendees === 0 ? (
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              You&apos;re the only one checked in so far. Matches appear once other
+              people join <span className="font-medium">this same event</span> and
+              check in.
+            </p>
+          ) : (
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              {otherAttendees} other {otherAttendees === 1 ? "person is" : "people are"}{" "}
+              here. Tap Refresh to compute your matches.
+            </p>
+          )}
           <Button variant="outline" onClick={refresh} disabled={refreshing}>
             <RefreshCw className="size-4" /> Check again
           </Button>
