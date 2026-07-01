@@ -39,16 +39,26 @@ export function GuestJoinButton({
   async function joinAsGuest() {
     setJoining(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInAnonymously()
-    if (error) {
+    const { data, error } = await supabase.auth.signInAnonymously()
+
+    if (error || !data.user) {
       setJoining(false)
-      toast.error(
-        error.message.includes("disabled")
-          ? "Guest access isn't enabled yet. Please sign in instead."
-          : error.message
-      )
+      // Surface something legible — Supabase returns opaque 5xx errors (which
+      // serialize to "{}") when guest sign-ins are disabled or the profile
+      // trigger fails. Map the common cases to actionable guidance.
+      console.error("Anonymous sign-in failed:", error)
+      const msg = error?.message ?? ""
+      const status = (error as { status?: number } | null)?.status
+      if (msg.toLowerCase().includes("disabled") || status === 422) {
+        toast.error("Guest access isn't enabled for this event yet. Try signing in.")
+      } else if (!msg || status === 500) {
+        toast.error("Couldn't start a guest session. Please try again shortly.")
+      } else {
+        toast.error(msg)
+      }
       return
     }
+
     // Session cookie is set — re-render the server page as the new guest user.
     router.refresh()
   }
