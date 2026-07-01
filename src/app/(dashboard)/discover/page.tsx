@@ -53,13 +53,12 @@ export default async function DiscoverPage({
     )
   }
 
-  const { data: event } = await supabase
-    .from("events")
-    .select("name")
-    .eq("id", eventId)
-    .single()
+  const [{ data: event }, { data: myProfile }, recsResult] = await Promise.all([
+    supabase.from("events").select("name").eq("id", eventId).single(),
+    supabase.from("profiles").select("display_name").eq("user_id", user.id).single(),
+    getMyRecommendations(eventId),
+  ])
 
-  const recsResult = await getMyRecommendations(eventId)
   const matches = recsResult.success ? recsResult.data : []
 
   return (
@@ -69,6 +68,7 @@ export default async function DiscoverPage({
         eventId={eventId}
         eventName={event?.name ?? "this event"}
         initialMatches={matches}
+        meName={myProfile?.display_name ?? "You"}
       />
     </div>
   )

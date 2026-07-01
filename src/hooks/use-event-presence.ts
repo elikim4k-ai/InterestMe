@@ -3,30 +3,44 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 
+export interface PresentPerson {
+  key: string
+  name: string
+}
+
 /**
- * Tracks how many attendees are currently active on an event's discover page
- * using Supabase Realtime presence. Returns a live count.
+ * Tracks who is currently active on an event's discover page via Supabase
+ * Realtime presence. Returns the live list of people (with names) and a count.
+ * Pass the current user's name so they show up to others.
  */
-export function useEventPresence(eventId: string): number {
-  const [count, setCount] = useState(0)
+export function useEventPresence(
+  eventId: string,
+  me?: { name: string }
+): { count: number; people: PresentPerson[] } {
+  const [people, setPeople] = useState<PresentPerson[]>([])
 
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
+    const myKey = crypto.randomUUID()
 
     const channel = supabase.channel(`event-presence:${eventId}`, {
-      config: { presence: { key: crypto.randomUUID() } },
+      config: { presence: { key: myKey } },
     })
 
     channel
       .on("presence", { event: "sync" }, () => {
         if (cancelled) return
-        const state = channel.presenceState()
-        setCount(Object.keys(state).length)
+        const state = channel.presenceState<{ name: string }>()
+        const list: PresentPerson[] = Object.entries(state).map(([key, entries]) => ({
+          key,
+          name: entries[0]?.name ?? "Guest",
+        }))
+        setPeople(list)
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          await channel.track({ online_at: new Date().toISOString() })
+          await channel.track({ name: me?.name ?? "Guest", online_at: new Date().toISOString() })
         }
       })
 
@@ -34,7 +48,7 @@ export function useEventPresence(eventId: string): number {
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [eventId])
+  }, [eventId, me?.name])
 
-  return count
+  return { count: people.length, people }
 }

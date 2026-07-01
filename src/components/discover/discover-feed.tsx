@@ -15,14 +15,17 @@ export function DiscoverFeed({
   eventId,
   eventName,
   initialMatches,
+  meName,
 }: {
   eventId: string
   eventName: string
   initialMatches: RecommendationView[]
+  meName: string
 }) {
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
-  const liveCount = useEventPresence(eventId)
+  const { count: liveCount, people } = useEventPresence(eventId, { name: meName })
+  const others = people.filter((p) => p.name !== meName)
 
   function removeMatch(userId: string) {
     setMatches((prev) => prev.filter((m) => m.recommendedUserId !== userId))
@@ -69,6 +72,29 @@ export function DiscoverFeed({
           Refresh
         </Button>
       </div>
+
+      {/* Who's here right now */}
+      {others.length > 0 && (
+        <div className="rounded-2xl border bg-muted/30 p-4">
+          <p className="text-xs font-medium text-muted-foreground mb-2.5 flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Here right now
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {others.map((p) => (
+              <div
+                key={p.key}
+                className="flex items-center gap-1.5 rounded-full bg-background border pl-1 pr-3 py-1"
+              >
+                <span className="size-6 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 text-white text-[10px] font-semibold flex items-center justify-center">
+                  {p.name.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="text-sm">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {matches.length === 0 ? (
         <div className="text-center py-16 space-y-3">

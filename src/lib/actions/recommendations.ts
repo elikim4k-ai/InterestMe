@@ -88,6 +88,11 @@ export async function getMyRecommendations(
 
   if (!targetEvent) return ok([])
 
+  // Always recompute so attendees who joined since the last view appear without
+  // a manual Refresh. computeAndPersist updates scores and preserves any
+  // `dismissed` flags on existing rows. Render-safe (no revalidatePath).
+  await computeAndPersistRecommendations(supabase, userId, targetEvent)
+
   const { data: recs } = await supabase
     .from("recommendations")
     .select("recommended_user_id, score, reasons, shared_interests, dismissed")
@@ -96,11 +101,7 @@ export async function getMyRecommendations(
     .eq("dismissed", false)
     .order("score", { ascending: false })
 
-  if (!recs || recs.length === 0) {
-    // None persisted yet → compute on demand. Use the render-safe helper (no
-    // revalidatePath) since getMyRecommendations runs during page render.
-    return computeAndPersistRecommendations(supabase, userId, targetEvent)
-  }
+  if (!recs || recs.length === 0) return ok([])
 
   // Hydrate profile display data
   const ids = recs.map((r: { recommended_user_id: string }) => r.recommended_user_id)
