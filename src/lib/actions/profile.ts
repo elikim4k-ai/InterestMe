@@ -45,17 +45,43 @@ export async function setInterests(labels: string[]): Promise<ActionResult> {
   if (!ctx.ok) return fail(ctx.error)
   const { supabase, profileId } = ctx
 
-  // Upsert taxonomy and collect ids
+  // Get-or-create each interest in the shared taxonomy. We deliberately avoid
+  // upsert here: on conflict it would UPDATE, and the interests table only
+  // grants SELECT + INSERT via RLS (updating a global taxonomy row isn't
+  // something an individual user should do). Select first, insert if missing.
   const interestIds: string[] = []
   for (const label of labels) {
     const slug = slugify(label)
-    const { data, error } = await supabase
+
+    const { data: existing } = await supabase
       .from("interests")
-      .upsert({ name: label, slug }, { onConflict: "slug" })
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle()
+
+    if (existing) {
+      interestIds.push(existing.id)
+      continue
+    }
+
+    const { data: inserted, error } = await supabase
+      .from("interests")
+      .insert({ name: label, slug })
       .select("id")
       .single()
-    if (error) return fail(error.message)
-    if (data) interestIds.push(data.id)
+
+    if (inserted) {
+      interestIds.push(inserted.id)
+    } else if (error) {
+      // Likely a race: another request created it between our select and insert.
+      const { data: raced } = await supabase
+        .from("interests")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle()
+      if (raced) interestIds.push(raced.id)
+      else return fail(error.message)
+    }
   }
 
   // Clear existing then insert — simplest correct reconciliation

@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { OAUTH_ENABLED } from "@/lib/flags"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -68,25 +69,29 @@ export function LoginForm() {
   return (
     <div className="space-y-5">
       {/* OAuth */}
-      <Button
-        variant="outline"
-        className="w-full gap-3"
-        onClick={signInWithGoogle}
-        loading={googleLoading}
-        type="button"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </Button>
+      {OAUTH_ENABLED && (
+        <>
+          <Button
+            variant="outline"
+            className="w-full gap-3"
+            onClick={signInWithGoogle}
+            loading={googleLoading}
+            type="button"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </Button>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">or</span>
-        </div>
-      </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Email / password */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
