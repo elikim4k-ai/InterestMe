@@ -26,8 +26,23 @@ export async function generateEventRecommendations(
 ): Promise<ActionResult<RecommendationView[]>> {
   const ctx = await getAuthedUser()
   if (!ctx.ok) return fail(ctx.error)
-  const { supabase, userId } = ctx
 
+  const result = await computeAndPersistRecommendations(ctx.supabase, ctx.userId, eventId)
+  // revalidatePath is only valid inside an action (never during render), so it
+  // lives here rather than in the shared compute helper.
+  if (result.success) revalidatePath("/discover")
+  return result
+}
+
+/**
+ * Pure compute + persist, WITHOUT cache invalidation. Safe to call during a
+ * Server Component render (e.g. getMyRecommendations on first Discover load).
+ */
+async function computeAndPersistRecommendations(
+  supabase: SupabaseClient,
+  userId: string,
+  eventId: string
+): Promise<ActionResult<RecommendationView[]>> {
   const engine = getMatchEngine()
   const matches = await engine.computeEventMatches(supabase, userId, eventId, 10)
 
@@ -47,7 +62,6 @@ export async function generateEventRecommendations(
     if (error) return fail(error.message)
   }
 
-  revalidatePath("/discover")
   return ok(toViews(matches))
 }
 
@@ -83,8 +97,9 @@ export async function getMyRecommendations(
     .order("score", { ascending: false })
 
   if (!recs || recs.length === 0) {
-    // None persisted yet → compute on demand
-    return generateEventRecommendations(targetEvent)
+    // None persisted yet → compute on demand. Use the render-safe helper (no
+    // revalidatePath) since getMyRecommendations runs during page render.
+    return computeAndPersistRecommendations(supabase, userId, targetEvent)
   }
 
   // Hydrate profile display data
