@@ -38,6 +38,15 @@ export function DiscoverFeed({
     userId: meUserId,
     name: meName,
   })
+
+  // Prioritize people you can actually meet now: online first, then by score.
+  // Rank (and the TOP 1/2/3 neon) follows this order.
+  const sortedMatches = [...matches].sort((a, b) => {
+    const ao = onlineIds.has(a.recommendedUserId) ? 1 : 0
+    const bo = onlineIds.has(b.recommendedUserId) ? 1 : 0
+    if (ao !== bo) return bo - ao
+    return b.score - a.score
+  })
   // Show yourself first (labeled), then everyone else.
   const self = people.find((p) => p.key === selfKey)
   const others = people.filter((p) => p.key !== selfKey)
@@ -166,7 +175,7 @@ export function DiscoverFeed({
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           <AnimatePresence mode="popLayout">
-            {matches.map((m, i) => (
+            {sortedMatches.map((m, i) => (
               <MatchCard
                 key={m.recommendedUserId}
                 eventId={eventId}

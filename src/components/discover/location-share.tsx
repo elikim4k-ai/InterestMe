@@ -126,9 +126,16 @@ export function LocationShareProvider({
           broadcast() // push whatever coords we already have
         }
       })
+    // On returning to the foreground (phone woke), re-broadcast so we reappear.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") broadcast()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
     return () => {
       subscribedRef.current = false
       channelRef.current = null
+      document.removeEventListener("visibilitychange", onVisible)
       supabase.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

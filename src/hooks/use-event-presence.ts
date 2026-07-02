@@ -43,16 +43,28 @@ export function useEventPresence(
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          await channel.track({
-            userId: me?.userId ?? "",
-            name: me?.name ?? "Guest",
-            online_at: new Date().toISOString(),
-          })
+          await track()
         }
       })
 
+    async function track() {
+      await channel.track({
+        userId: me?.userId ?? "",
+        name: me?.name ?? "Guest",
+        online_at: new Date().toISOString(),
+      })
+    }
+
+    // Re-announce presence when the tab returns to foreground (e.g. after the
+    // phone woke from sleep and the socket reconnected) so we don't linger offline.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void track()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
     return () => {
       cancelled = true
+      document.removeEventListener("visibilitychange", onVisible)
       supabase.removeChannel(channel)
     }
   }, [eventId, me?.userId, me?.name, selfKey])
