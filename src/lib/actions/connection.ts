@@ -4,6 +4,82 @@ import { revalidatePath } from "next/cache"
 import { generateStarters } from "@/lib/ai/starters"
 import { getAuthedContext, getAuthedUser, ok, fail, type ActionResult } from "./helpers"
 
+export interface ConnectionPerson {
+  connectionId: string
+  userId: string
+  name: string
+  headline: string | null
+  avatarUrl: string | null
+}
+
+/**
+ * The current user's connections, split into incoming requests (people who want
+ * to connect with them) and accepted connections.
+ */
+export async function getConnections(): Promise<
+  ActionResult<{ incoming: ConnectionPerson[]; accepted: ConnectionPerson[] }>
+> {
+  const ctx = await getAuthedUser()
+  if (!ctx.ok) return fail(ctx.error)
+  const { supabase, userId } = ctx
+
+  const { data: rows } = await supabase
+    .from("connections")
+    .select("id, sender_id, receiver_id, status")
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+
+  const list = (rows ?? []) as Array<{
+    id: string
+    sender_id: string
+    receiver_id: string
+    status: string
+  }>
+
+  // Incoming = pending requests where I'm the receiver → the sender wants me.
+  const incomingRaw = list.filter((c) => c.receiver_id === userId && c.status === "PENDING")
+  const acceptedRaw = list.filter((c) => c.status === "ACCEPTED")
+
+  const otherId = (c: { sender_id: string; receiver_id: string }) =>
+    c.sender_id === userId ? c.receiver_id : c.sender_id
+
+  const ids = [...new Set([...incomingRaw, ...acceptedRaw].map(otherId))]
+  const profileMap = new Map<
+    string,
+    { display_name: string; headline: string | null; avatar_url: string | null }
+  >()
+  if (ids.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, headline, avatar_url")
+      .in("user_id", ids)
+    for (const p of (profiles ?? []) as Array<{
+      user_id: string
+      display_name: string
+      headline: string | null
+      avatar_url: string | null
+    }>) {
+      profileMap.set(p.user_id, p)
+    }
+  }
+
+  const toPerson = (c: { id: string; sender_id: string; receiver_id: string }): ConnectionPerson => {
+    const oid = otherId(c)
+    const p = profileMap.get(oid)
+    return {
+      connectionId: c.id,
+      userId: oid,
+      name: p?.display_name ?? "Someone",
+      headline: p?.headline ?? null,
+      avatarUrl: p?.avatar_url ?? null,
+    }
+  }
+
+  return ok({
+    incoming: incomingRaw.map(toPerson),
+    accepted: acceptedRaw.map(toPerson),
+  })
+}
+
 /** Send a connection request, optionally tagged with the event where you met. */
 export async function sendConnectionRequest(
   receiverId: string,

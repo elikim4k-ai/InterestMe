@@ -96,6 +96,8 @@ model User {
   attendances      EventAttendee[]
   sentConnections  Connection[]     @relation("ConnectionSender")
   receivedConnections Connection[]  @relation("ConnectionReceiver")
+  sentMessages     Message[]        @relation("MessageSender")
+  receivedMessages Message[]        @relation("MessageReceiver")
   notifications    Notification[]
   achievements     UserAchievement[]
   activityLogs     ActivityLog[]
@@ -340,6 +342,23 @@ model Recommendation {
 
   @@unique([eventId, userId, recommendedUserId])
   @@map("recommendations")
+}
+
+// ─── DIRECT MESSAGES ─────────────────────────────────────────────────────────
+
+model Message {
+  id         String   @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
+  receiverId String   @map("receiver_id") @db.Uuid
+  content    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@map("messages")
 }
 
 // ─── KNOWLEDGE GRAPH ─────────────────────────────────────────────────────────

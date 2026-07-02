@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Protected routes — redirect to login if not authenticated
-  const protectedPrefixes = ["/dashboard", "/profile", "/events", "/discover", "/connections", "/settings"]
+  const protectedPrefixes = ["/dashboard", "/profile", "/events", "/discover", "/connections", "/messages", "/settings"]
   if (protectedPrefixes.some((p) => pathname.startsWith(p)) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
