@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Navigation, X, Compass, Loader2 } from "lucide-react"
+import { Navigation, X, Compass, Loader2, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLocationShare, type Coords } from "./location-share"
 
@@ -19,7 +19,7 @@ export function FindOverlay({
   target: { userId: string; name: string }
   onClose: () => void
 }) {
-  const { myCoords, myAccuracy, positions, error, enable } = useLocationShare()
+  const { myCoords, myAccuracy, positions, error, enable, signal } = useLocationShare()
   const [heading, setHeading] = useState<number | null>(null)
   const [needsCompass, setNeedsCompass] = useState(false)
 
@@ -155,6 +155,17 @@ export function FindOverlay({
             )}
             <p className="text-[11px] text-white/50 mt-4 max-w-xs">
               Location is approximate (GPS), shared only while you&apos;re on Discover.
+            </p>
+
+            <Button
+              onClick={() => signal(target)}
+              className="mt-5 gap-2 bg-white text-slate-900 hover:bg-white/90"
+            >
+              <Zap className="size-4" /> Signal — flash my screen
+            </Button>
+            <p className="text-[11px] text-white/60 mt-1.5 max-w-[16rem] mx-auto">
+              Lights up your screen and pings {target.name} to look around — great
+              for the last few meters.
             </p>
           </div>
         </>

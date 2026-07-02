@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 
 export interface PresentPerson {
   key: string
+  userId: string
   name: string
 }
 
@@ -15,8 +16,8 @@ export interface PresentPerson {
  */
 export function useEventPresence(
   eventId: string,
-  me?: { name: string }
-): { count: number; people: PresentPerson[]; selfKey: string } {
+  me?: { userId: string; name: string }
+): { count: number; people: PresentPerson[]; selfKey: string; onlineIds: Set<string> } {
   const [people, setPeople] = useState<PresentPerson[]>([])
   const [selfKey] = useState(() => crypto.randomUUID())
 
@@ -32,16 +33,21 @@ export function useEventPresence(
     channel
       .on("presence", { event: "sync" }, () => {
         if (cancelled) return
-        const state = channel.presenceState<{ name: string }>()
+        const state = channel.presenceState<{ userId: string; name: string }>()
         const list: PresentPerson[] = Object.entries(state).map(([key, entries]) => ({
           key,
+          userId: entries[0]?.userId ?? "",
           name: entries[0]?.name ?? "Guest",
         }))
         setPeople(list)
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          await channel.track({ name: me?.name ?? "Guest", online_at: new Date().toISOString() })
+          await channel.track({
+            userId: me?.userId ?? "",
+            name: me?.name ?? "Guest",
+            online_at: new Date().toISOString(),
+          })
         }
       })
 
@@ -49,7 +55,8 @@ export function useEventPresence(
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [eventId, me?.name, selfKey])
+  }, [eventId, me?.userId, me?.name, selfKey])
 
-  return { count: people.length, people, selfKey }
+  const onlineIds = new Set(people.map((p) => p.userId).filter(Boolean))
+  return { count: people.length, people, selfKey, onlineIds }
 }

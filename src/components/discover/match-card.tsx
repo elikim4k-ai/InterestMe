@@ -20,11 +20,13 @@ export function MatchCard({
   match,
   onRemoved,
   rank,
+  online,
 }: {
   eventId: string
   match: RecommendationView
   onRemoved: (userId: string) => void
   rank: number
+  online: boolean
 }) {
   const isTop = rank < 3
   const accent = matchColor(match.score)
@@ -99,6 +101,20 @@ export function MatchCard({
 
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold leading-tight truncate">{match.displayName}</h3>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 text-[11px] font-medium",
+                  online ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                )}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    online ? "bg-emerald-500" : "bg-rose-400"
+                  )}
+                />
+                {online ? "Online" : "Offline"}
+              </span>
               {match.headline && (
                 <p className="text-sm text-muted-foreground truncate">{match.headline}</p>
               )}

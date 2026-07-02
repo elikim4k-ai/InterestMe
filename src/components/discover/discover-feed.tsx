@@ -34,7 +34,10 @@ export function DiscoverFeed({
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
   const [showMap, setShowMap] = useState(false)
-  const { count: liveCount, people, selfKey } = useEventPresence(eventId, { name: meName })
+  const { count: liveCount, people, selfKey, onlineIds } = useEventPresence(eventId, {
+    userId: meUserId,
+    name: meName,
+  })
   // Show yourself first (labeled), then everyone else.
   const self = people.find((p) => p.key === selfKey)
   const others = people.filter((p) => p.key !== selfKey)
@@ -170,6 +173,7 @@ export function DiscoverFeed({
                 match={m}
                 onRemoved={removeMatch}
                 rank={i}
+                online={onlineIds.has(m.recommendedUserId)}
               />
             ))}
           </AnimatePresence>

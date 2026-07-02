@@ -10,6 +10,7 @@ import {
 import type { RealtimeChannel } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import { FindOverlay } from "./find-overlay"
+import { FlashBeacon } from "./flash-beacon"
 
 export interface Coords {
   lat: number
@@ -29,6 +30,8 @@ interface LocationShareCtx {
   positions: Map<string, PositionInfo>
   enable: () => void
   find: (target: { userId: string; name: string }) => void
+  /** Flash my screen + alert the target so we can spot each other. */
+  signal: (target: { userId: string; name: string }) => void
 }
 
 const Ctx = createContext<LocationShareCtx | null>(null)
@@ -62,6 +65,7 @@ export function LocationShareProvider({
   const [myAccuracy, setMyAccuracy] = useState<number | null>(null)
   const [positions, setPositions] = useState<Map<string, PositionInfo>>(new Map())
   const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
+  const [flash, setFlash] = useState<{ name: string; subtitle: string } | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const subscribedRef = useRef(false)
   const latestRef = useRef<(Coords & { accuracy: number }) | null>(null)
@@ -110,6 +114,12 @@ export function LocationShareProvider({
         }
         setPositions(map)
       })
+      .on("broadcast", { event: "signal" }, ({ payload }) => {
+        const p = payload as { toUserId: string; fromName: string }
+        if (p.toUserId === meUserId) {
+          setFlash({ name: p.fromName, subtitle: "is signaling nearby — look for their screen! 👀" })
+        }
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           subscribedRef.current = true
@@ -153,6 +163,17 @@ export function LocationShareProvider({
     setEnabled(true)
   }, [])
 
+  function signal(target: { userId: string; name: string }) {
+    // Flash my own screen (so the other person can spot it)…
+    setFlash({ name: meName, subtitle: "👋 Over here!" })
+    // …and ping the target so they know to look around.
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "signal",
+      payload: { toUserId: target.userId, fromName: meName },
+    })
+  }
+
   return (
     <Ctx.Provider
       value={{
@@ -163,10 +184,14 @@ export function LocationShareProvider({
         positions,
         enable: () => setEnabled(true),
         find: setFinding,
+        signal,
       }}
     >
       {children}
       {finding && <FindOverlay target={finding} onClose={() => setFinding(null)} />}
+      {flash && (
+        <FlashBeacon name={flash.name} subtitle={flash.subtitle} onDone={() => setFlash(null)} />
+      )}
     </Ctx.Provider>
   )
 }
