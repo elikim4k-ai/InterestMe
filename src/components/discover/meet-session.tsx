@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import type { RealtimeChannel } from "@supabase/supabase-js"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { MeetTimerOverlay } from "./meet-timer-overlay"
 
 export interface Member {
   userId: string
@@ -21,11 +23,16 @@ interface MeetCtx {
   session: Session | null
   secondsLeft: number
   expired: boolean
-  /** Confirm you've met someone in person → start/join a shared timer. */
+  minimized: boolean
   confirmMet: (target: Member) => void
-  /** Temporary test: solo 20-second timer to preview the countdown ending. */
   startTest: () => void
   leave: () => void
+  minimize: () => void
+  expand: () => void
+  /** True if this user is currently in an active (unexpired) conversation. */
+  isBusy: (userId: string) => boolean
+  /** Wait for a busy person; get a toast reminder when their timer ends. */
+  waitlistFor: (target: Member) => void
 }
 
 const Ctx = createContext<MeetCtx | null>(null)
@@ -44,13 +51,6 @@ interface PresencePayload {
   durationMs: number | null
 }
 
-/**
- * Live conversation-timer groups. When you confirm meeting someone, a shared
- * countdown starts for the pair; a third person who confirms with anyone in the
- * group joins the SAME timer. Group membership + merge is coordinated over a
- * Realtime channel — the person tapping "We connected" resolves the resulting
- * group and broadcasts it, and everyone included adopts it.
- */
 export function MeetSessionProvider({
   eventId,
   meUserId,
@@ -68,6 +68,8 @@ export function MeetSessionProvider({
 }) {
   const [session, setSession] = useState<Session | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [minimized, setMinimized] = useState(false)
+  const [waitlist, setWaitlist] = useState<Member[]>([])
   const channelRef = useRef<RealtimeChannel | null>(null)
   const sessionRef = useRef<Session | null>(null)
   const presenceRef = useRef<Record<string, PresencePayload[]>>({})
@@ -76,6 +78,25 @@ export function MeetSessionProvider({
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  function isBusy(userId: string): boolean {
+    for (const entries of Object.values(presenceRef.current)) {
+      const e = entries[0]
+      if (e?.userId === userId && e.groupId && e.startedAt && e.durationMs) {
+        if (Date.now() < e.startedAt + e.durationMs) return true
+      }
+    }
+    return false
+  }
+
+  function membersWithGroup(groupId: string): Member[] {
+    const out: Member[] = []
+    for (const entries of Object.values(presenceRef.current)) {
+      const e = entries[0]
+      if (e?.groupId === groupId) out.push({ userId: e.userId, name: e.name })
+    }
+    return out
+  }
 
   useEffect(() => {
     if (!enabled) return
@@ -104,8 +125,13 @@ export function MeetSessionProvider({
         const p = payload as Session
         if (p.members.some((m) => m.userId === meUserId)) {
           setSession(p)
+          setMinimized(false)
           track(p)
         }
+      })
+      .on("broadcast", { event: "waitlist" }, ({ payload }) => {
+        const p = payload as { toUserId: string; fromName: string }
+        if (p.toUserId === meUserId) toast(`${p.fromName} is waiting to meet you next 👋`)
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") track(sessionRef.current)
@@ -123,23 +149,28 @@ export function MeetSessionProvider({
     return () => clearInterval(t)
   }, [])
 
+  // Waitlist reminders: nudge when a busy person's timer ends.
+  useEffect(() => {
+    if (waitlist.length === 0) return
+    const t = setInterval(() => {
+      const freed = waitlist.filter((m) => !isBusy(m.userId))
+      if (freed.length > 0) {
+        freed.forEach((m) => toast(`${m.name} is free now — go say hi! 👋`))
+        setWaitlist((w) => w.filter((m) => isBusy(m.userId)))
+      }
+    }, 5000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitlist])
+
   const secondsLeft = session
     ? Math.max(0, Math.ceil((session.startedAt + session.durationMs - now) / 1000))
     : 0
   const expired = !!session && secondsLeft <= 0
 
-  function membersWithGroup(groupId: string): Member[] {
-    const out: Member[] = []
-    for (const entries of Object.values(presenceRef.current)) {
-      const e = entries[0]
-      if (e?.groupId === groupId) out.push({ userId: e.userId, name: e.name })
-    }
-    return out
-  }
-
   function confirmMet(target: Member) {
     if (!enabled) return
-    // Read the target's current group (if any) from presence.
+
     let targetGroupId: string | null = null
     let targetStartedAt: number | null = null
     let targetDurationMs: number | null = null
@@ -159,19 +190,16 @@ export function MeetSessionProvider({
     let base: Member[]
 
     if (targetGroupId && targetStartedAt) {
-      // Join the target's existing group (they might already be a trio).
       groupId = targetGroupId
       startedAt = targetStartedAt
       durationMs = targetDurationMs ?? durationMinutes * 60_000
       base = membersWithGroup(targetGroupId)
     } else if (mine) {
-      // Target joins my existing group.
       groupId = mine.groupId
       startedAt = mine.startedAt
       durationMs = mine.durationMs
       base = mine.members
     } else {
-      // Fresh pair.
       groupId = crypto.randomUUID()
       startedAt = Date.now()
       durationMs = durationMinutes * 60_000
@@ -190,7 +218,18 @@ export function MeetSessionProvider({
     const next: Session = { groupId, startedAt, durationMs, members }
     channelRef.current?.send({ type: "broadcast", event: "form", payload: next })
     setSession(next)
+    setMinimized(false)
     trackRef.current(next)
+  }
+
+  function waitlistFor(target: Member) {
+    setWaitlist((w) => (w.some((m) => m.userId === target.userId) ? w : [...w, target]))
+    toast(`${target.name} is in a conversation. You're on the waitlist — we'll nudge you when they're free.`)
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "waitlist",
+      payload: { toUserId: target.userId, fromName: meName },
+    })
   }
 
   function startTest() {
@@ -201,6 +240,7 @@ export function MeetSessionProvider({
       members: [{ userId: meUserId, name: meName }],
     }
     setSession(next)
+    setMinimized(false)
     trackRef.current(next)
   }
 
@@ -210,8 +250,24 @@ export function MeetSessionProvider({
   }
 
   return (
-    <Ctx.Provider value={{ enabled, session, secondsLeft, expired, confirmMet, startTest, leave }}>
+    <Ctx.Provider
+      value={{
+        enabled,
+        session,
+        secondsLeft,
+        expired,
+        minimized,
+        confirmMet,
+        startTest,
+        leave,
+        minimize: () => setMinimized(true),
+        expand: () => setMinimized(false),
+        isBusy,
+        waitlistFor,
+      }}
+    >
       {children}
+      {session && !minimized && <MeetTimerOverlay />}
     </Ctx.Provider>
   )
 }

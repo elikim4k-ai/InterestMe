@@ -65,7 +65,11 @@ export function LocationShareProvider({
   const [myAccuracy, setMyAccuracy] = useState<number | null>(null)
   const [positions, setPositions] = useState<Map<string, PositionInfo>>(new Map())
   const [finding, setFinding] = useState<{ userId: string; name: string } | null>(null)
-  const [flash, setFlash] = useState<{ name: string; subtitle: string } | null>(null)
+  const [flash, setFlash] = useState<{
+    name: string
+    subtitle: string
+    connectWith?: { userId: string; name: string }
+  } | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const subscribedRef = useRef(false)
   const latestRef = useRef<(Coords & { accuracy: number }) | null>(null)
@@ -115,9 +119,13 @@ export function LocationShareProvider({
         setPositions(map)
       })
       .on("broadcast", { event: "signal" }, ({ payload }) => {
-        const p = payload as { toUserId: string; fromName: string }
+        const p = payload as { toUserId: string; fromUserId: string; fromName: string }
         if (p.toUserId === meUserId) {
-          setFlash({ name: p.fromName, subtitle: "is signaling nearby — look for their screen! 👀" })
+          setFlash({
+            name: p.fromName,
+            subtitle: "is looking for you 👀",
+            connectWith: { userId: p.fromUserId, name: p.fromName },
+          })
         }
       })
       .subscribe((status) => {
@@ -171,13 +179,14 @@ export function LocationShareProvider({
   }, [])
 
   function signal(target: { userId: string; name: string }) {
-    // Flash my own screen (so the other person can spot it)…
-    setFlash({ name: meName, subtitle: "👋 Over here!" })
+    // Flash my own screen (so the other person can spot it), with a shortcut to
+    // confirm the connection once we're face to face…
+    setFlash({ name: meName, subtitle: "👋 Over here!", connectWith: target })
     // …and ping the target so they know to look around.
     channelRef.current?.send({
       type: "broadcast",
       event: "signal",
-      payload: { toUserId: target.userId, fromName: meName },
+      payload: { toUserId: target.userId, fromUserId: meUserId, fromName: meName },
     })
   }
 
@@ -197,7 +206,12 @@ export function LocationShareProvider({
       {children}
       {finding && <FindOverlay target={finding} onClose={() => setFinding(null)} />}
       {flash && (
-        <FlashBeacon name={flash.name} subtitle={flash.subtitle} onDone={() => setFlash(null)} />
+        <FlashBeacon
+          name={flash.name}
+          subtitle={flash.subtitle}
+          connectWith={flash.connectWith}
+          onDone={() => setFlash(null)}
+        />
       )}
     </Ctx.Provider>
   )

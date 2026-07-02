@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
  * timer so the countdown-end behavior can be previewed.
  */
 export function MeetSessionBanner({ meUserId }: { meUserId: string }) {
-  const { enabled, session, secondsLeft, expired, startTest, leave } = useMeetSession()
+  const { enabled, session, secondsLeft, expired, startTest, leave, expand } = useMeetSession()
 
   if (!enabled) return null
 
@@ -78,7 +78,10 @@ export function MeetSessionBanner({ meUserId }: { meUserId: string }) {
         <span className="text-lg font-bold tabular-nums text-violet-600 dark:text-violet-400">
           {mmss}
         </span>
-        <Button size="sm" variant="outline" onClick={leave}>
+        <Button size="sm" variant="outline" onClick={expand}>
+          Open
+        </Button>
+        <Button size="sm" variant="ghost" onClick={leave}>
           Done
         </Button>
       </div>
