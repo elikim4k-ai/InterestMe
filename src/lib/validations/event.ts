@@ -39,6 +39,10 @@ export const createEventSchema = z.object({
 export type CreateEventValues = z.infer<typeof createEventSchema>
 export type EventQuestionValues = z.infer<typeof eventQuestionSchema>
 
+/** Editing an existing event covers its core fields (not the question set). */
+export const updateEventSchema = createEventSchema.omit({ questions: true })
+export type UpdateEventValues = z.infer<typeof updateEventSchema>
+
 export const answerSchema = z.object({
   questionId: z.string().uuid(),
   answer: z.string().max(2000),

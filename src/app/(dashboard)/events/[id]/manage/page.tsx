@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Calendar, MapPin, Users, Copy } from "lucide-react"
+import { ArrowLeft, Calendar, MapPin, Users, Pencil, Monitor } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { generateEventQr, eventJoinUrl } from "@/lib/qr"
 import { getEventAnalytics } from "@/lib/actions/analytics"
@@ -10,6 +10,7 @@ import { BarList } from "@/components/analytics/charts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { CopyLinkButton } from "@/components/events/copy-link-button"
 import { DeleteEventButton } from "@/components/events/delete-event-button"
 
@@ -102,7 +103,17 @@ export default async function ManageEventPage({
           </div>
         </div>
 
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/events/${event.id}/edit`}>
+              <Pencil className="size-4" /> Edit
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/event/${event.slug}/present`} target="_blank" rel="noopener noreferrer">
+              <Monitor className="size-4" /> Present
+            </a>
+          </Button>
           <DeleteEventButton eventId={event.id} eventName={event.name} />
         </div>
       </div>

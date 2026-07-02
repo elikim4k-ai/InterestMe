@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createEventSchema, submitAnswersSchema } from "@/lib/validations/event"
+import { createEventSchema, updateEventSchema, submitAnswersSchema } from "@/lib/validations/event"
 import { slugify } from "@/lib/utils"
 import { getAuthedUser, getAuthedContext, ok, fail, type ActionResult } from "./helpers"
 
@@ -64,6 +64,38 @@ export async function createEvent(
 
   revalidatePath("/events")
   return ok({ id: event.id, slug: event.slug })
+}
+
+/** Update an event's core details. Organizer only (RLS also enforces). */
+export async function updateEvent(eventId: string, input: unknown): Promise<ActionResult> {
+  const parsed = updateEventSchema.safeParse(input)
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input")
+
+  const ctx = await getAuthedUser()
+  if (!ctx.ok) return fail(ctx.error)
+
+  const v = parsed.data
+  const { error } = await ctx.supabase
+    .from("events")
+    .update({
+      name: v.name,
+      description: v.description || null,
+      location: v.location || null,
+      start_time: new Date(v.startTime).toISOString(),
+      end_time: v.endTime ? new Date(v.endTime).toISOString() : null,
+      is_public: v.isPublic,
+      max_attendees: v.maxAttendees ?? null,
+      rotation_enabled: v.rotationEnabled,
+      rotation_minutes: v.rotationEnabled ? v.rotationMinutes ?? 15 : null,
+    })
+    .eq("id", eventId)
+    .eq("organizer_id", ctx.userId)
+
+  if (error) return fail(error.message)
+
+  revalidatePath(`/events/${eventId}/manage`)
+  revalidatePath("/events")
+  return ok(undefined)
 }
 
 /** Register the current user as an attendee of an event (idempotent). */
