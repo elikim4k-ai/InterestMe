@@ -56,7 +56,11 @@ export default async function DiscoverPage({
 
   const [{ data: event }, { data: myProfile }, otherAttendeesResult, recsResult] =
     await Promise.all([
-      supabase.from("events").select("name").eq("id", eventId).single(),
+      supabase
+        .from("events")
+        .select("name, rotation_enabled, rotation_minutes")
+        .eq("id", eventId)
+        .single(),
       supabase.from("profiles").select("display_name").eq("user_id", user.id).single(),
       // How many OTHER attendees are visible to me (respects RLS — exactly what
       // the match engine can see). A key diagnostic: 0 here means matching can't
@@ -83,6 +87,8 @@ export default async function DiscoverPage({
         meUserId={user.id}
         aiActive={getAIProvider().isLive}
         otherAttendees={otherAttendees}
+        rotationEnabled={event?.rotation_enabled ?? false}
+        rotationMinutes={event?.rotation_minutes ?? 15}
       />
     </div>
   )

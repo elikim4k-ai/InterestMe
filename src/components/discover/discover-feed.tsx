@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button"
 import { MatchCard } from "./match-card"
 import { EventGraph } from "./event-graph"
 import { LocationShareProvider } from "./location-share"
-import { RotationBanner } from "./rotation-banner"
+import { MeetSessionProvider } from "./meet-session"
+import { MeetSessionBanner } from "./meet-session-banner"
 import { MatchDiagnostics } from "./match-diagnostics"
 import { useEventPresence } from "@/hooks/use-event-presence"
 
@@ -23,6 +24,8 @@ export function DiscoverFeed({
   meUserId,
   aiActive,
   otherAttendees,
+  rotationEnabled,
+  rotationMinutes,
 }: {
   eventId: string
   eventName: string
@@ -31,6 +34,8 @@ export function DiscoverFeed({
   meUserId: string
   aiActive: boolean
   otherAttendees: number
+  rotationEnabled: boolean
+  rotationMinutes: number
 }) {
   const [matches, setMatches] = useState(initialMatches)
   const [refreshing, startRefresh] = useTransition()
@@ -76,6 +81,13 @@ export function DiscoverFeed({
   }
 
   return (
+    <MeetSessionProvider
+      eventId={eventId}
+      meUserId={meUserId}
+      meName={meName}
+      enabled={rotationEnabled}
+      durationMinutes={rotationMinutes}
+    >
     <LocationShareProvider eventId={eventId} meUserId={meUserId} meName={meName}>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -115,8 +127,8 @@ export function DiscoverFeed({
         </div>
       </div>
 
-      {/* Smart networking rounds (shown only when the organizer enabled them) */}
-      <RotationBanner eventId={eventId} />
+      {/* Conversation-timer session (shown only when the organizer enabled rounds) */}
+      <MeetSessionBanner meUserId={meUserId} />
 
       {/* Always-available match diagnostics */}
       <div className="text-center">
@@ -194,5 +206,6 @@ export function DiscoverFeed({
       )}
     </div>
     </LocationShareProvider>
+    </MeetSessionProvider>
   )
 }

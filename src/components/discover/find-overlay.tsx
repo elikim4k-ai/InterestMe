@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Navigation, X, Compass, Loader2, Zap } from "lucide-react"
+import { Navigation, X, Compass, Loader2, Zap, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLocationShare, type Coords } from "./location-share"
+import { useMeetSession } from "./meet-session"
 
 /**
  * "Warmer / colder" finder. Reads live positions from LocationShareProvider
@@ -20,6 +21,7 @@ export function FindOverlay({
   onClose: () => void
 }) {
   const { myCoords, myAccuracy, positions, error, enable, signal } = useLocationShare()
+  const meet = useMeetSession()
   const [heading, setHeading] = useState<number | null>(null)
   const [needsCompass, setNeedsCompass] = useState(false)
 
@@ -157,15 +159,29 @@ export function FindOverlay({
               Location is approximate (GPS), shared only while you&apos;re on Discover.
             </p>
 
-            <Button
-              onClick={() => signal(target)}
-              className="mt-5 gap-2 bg-white text-slate-900 hover:bg-white/90"
-            >
-              <Zap className="size-4" /> Signal — flash my screen
-            </Button>
-            <p className="text-[11px] text-white/60 mt-1.5 max-w-[16rem] mx-auto">
-              Lights up your screen and pings {target.name} to look around — great
-              for the last few meters.
+            <div className="mt-5 flex flex-col items-center gap-2">
+              <Button
+                onClick={() => signal(target)}
+                className="gap-2 bg-white text-slate-900 hover:bg-white/90"
+              >
+                <Zap className="size-4" /> Signal — flash my screen
+              </Button>
+              {meet.enabled && (
+                <Button
+                  variant="gradient"
+                  className="gap-2"
+                  onClick={() => {
+                    meet.confirmMet(target)
+                    onClose()
+                  }}
+                >
+                  <Check className="size-4" /> We connected — start timer
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-white/60 mt-2 max-w-[16rem] mx-auto">
+              Signal flashes your screen so {target.name} can spot you. Tap “We
+              connected” once you&apos;re together to start your chat timer.
             </p>
           </div>
         </>
