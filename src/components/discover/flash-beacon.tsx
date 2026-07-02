@@ -3,32 +3,32 @@
 import { useEffect } from "react"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
-import { useMeetSession, type Member } from "./meet-session"
-import { Button } from "@/components/ui/button"
 
 /**
- * Full-screen pulsing beacon so someone can spot you across a room. When it
- * carries the other person's identity, it also offers a "We connected" button
- * to start the shared conversation timer right from the flash.
+ * Full-screen pulsing beacon so someone can spot you across a room. Shows the
+ * screen owner's name (for others to identify) plus who they're pairing with.
+ * When actionable, offers a "We connected" button (synced to the other person)
+ * and a clearly-legible dismiss.
  */
 export function FlashBeacon({
   name,
   subtitle,
-  connectWith,
-  onDone,
+  canConnect,
+  onConnect,
+  onDismiss,
+  onExpire,
 }: {
   name: string
   subtitle: string
-  connectWith?: Member
-  onDone: () => void
+  canConnect: boolean
+  onConnect: () => void
+  onDismiss: () => void
+  onExpire: () => void
 }) {
-  const { enabled, confirmMet } = useMeetSession()
-
   useEffect(() => {
-    // Longer window when there's an action to take; brief otherwise.
-    const t = setTimeout(onDone, connectWith ? 15000 : 6000)
+    const t = setTimeout(onExpire, canConnect ? 15000 : 6000)
     return () => clearTimeout(t)
-  }, [onDone, connectWith])
+  }, [onExpire, canConnect])
 
   return (
     <motion.div
@@ -46,26 +46,27 @@ export function FlashBeacon({
         <motion.p
           animate={{ scale: [1, 1.08, 1] }}
           transition={{ duration: 0.8, repeat: Infinity }}
-          className="text-5xl font-black text-white drop-shadow-lg"
+          className="text-5xl font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
         >
           {name}
         </motion.p>
-        <p className="mt-3 text-lg font-semibold text-white/90">{subtitle}</p>
+        <p className="mt-3 text-lg font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
+          {subtitle}
+        </p>
 
-        {enabled && connectWith && (
-          <Button
-            size="lg"
-            className="mt-8 gap-2 bg-white text-slate-900 hover:bg-white/90"
-            onClick={() => {
-              confirmMet(connectWith)
-              onDone()
-            }}
+        {canConnect && (
+          <button
+            onClick={onConnect}
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-base font-bold text-slate-900 shadow-lg"
           >
             <Check className="size-5" /> We connected — start timer
-          </Button>
+          </button>
         )}
 
-        <button onClick={onDone} className="mt-6 text-xs text-white/70 underline">
+        <button
+          onClick={onDismiss}
+          className="mt-6 rounded-full bg-black/40 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm"
+        >
           Dismiss
         </button>
       </div>

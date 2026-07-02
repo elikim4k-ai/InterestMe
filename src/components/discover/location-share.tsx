@@ -11,6 +11,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import { FindOverlay } from "./find-overlay"
 import { FlashBeacon } from "./flash-beacon"
+import { useMeetSession } from "./meet-session"
 
 export interface Coords {
   lat: number
@@ -73,6 +74,7 @@ export function LocationShareProvider({
   const channelRef = useRef<RealtimeChannel | null>(null)
   const subscribedRef = useRef(false)
   const latestRef = useRef<(Coords & { accuracy: number }) | null>(null)
+  const meet = useMeetSession()
 
   // Broadcast my latest coords — only meaningful once the channel is subscribed.
   function broadcast() {
@@ -121,12 +123,17 @@ export function LocationShareProvider({
       .on("broadcast", { event: "signal" }, ({ payload }) => {
         const p = payload as { toUserId: string; fromUserId: string; fromName: string }
         if (p.toUserId === meUserId) {
+          // Show MY name big (so others spot my phone) + who I'm pairing with.
           setFlash({
-            name: p.fromName,
-            subtitle: "is looking for you 👀",
+            name: meName,
+            subtitle: `looking for ${p.fromName}`,
             connectWith: { userId: p.fromUserId, name: p.fromName },
           })
         }
+      })
+      .on("broadcast", { event: "flash-close" }, ({ payload }) => {
+        const p = payload as { toUserId: string }
+        if (p.toUserId === meUserId) setFlash(null)
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
@@ -179,15 +186,37 @@ export function LocationShareProvider({
   }, [])
 
   function signal(target: { userId: string; name: string }) {
-    // Flash my own screen (so the other person can spot it), with a shortcut to
-    // confirm the connection once we're face to face…
-    setFlash({ name: meName, subtitle: "👋 Over here!", connectWith: target })
+    // My screen shows MY name (for others to spot) + who I'm looking for.
+    setFlash({ name: meName, subtitle: `looking for ${target.name}`, connectWith: target })
     // …and ping the target so they know to look around.
     channelRef.current?.send({
       type: "broadcast",
       event: "signal",
       payload: { toUserId: target.userId, fromUserId: meUserId, fromName: meName },
     })
+  }
+
+  // Connect from the flash: start the shared timer AND close both flashes.
+  function flashConnect(other: { userId: string; name: string }) {
+    meet.confirmMet(other)
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "flash-close",
+      payload: { toUserId: other.userId },
+    })
+    setFlash(null)
+  }
+
+  // Manual dismiss: close both flashes.
+  function flashDismiss(otherUserId?: string) {
+    if (otherUserId) {
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "flash-close",
+        payload: { toUserId: otherUserId },
+      })
+    }
+    setFlash(null)
   }
 
   return (
@@ -209,8 +238,10 @@ export function LocationShareProvider({
         <FlashBeacon
           name={flash.name}
           subtitle={flash.subtitle}
-          connectWith={flash.connectWith}
-          onDone={() => setFlash(null)}
+          canConnect={!!flash.connectWith && meet.enabled}
+          onConnect={() => flash.connectWith && flashConnect(flash.connectWith)}
+          onDismiss={() => flashDismiss(flash.connectWith?.userId)}
+          onExpire={() => setFlash(null)}
         />
       )}
     </Ctx.Provider>
