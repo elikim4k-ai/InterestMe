@@ -118,6 +118,11 @@ export default async function PublicEventPage({
     .eq("user_id", user.id)
     .maybeSingle()
 
+  // Returning attendee who already checked in → skip the questions, go discover.
+  if (attendee?.status === "CHECKED_IN") {
+    redirect(`/discover?event=${event.id}`)
+  }
+
   const existingAnswers: Record<string, string> = {}
   if (attendee?.event_answers) {
     for (const a of attendee.event_answers as Array<{ question_id: string; answer: string }>) {
