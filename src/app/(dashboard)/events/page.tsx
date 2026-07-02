@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Plus, Calendar, MapPin, Users } from "lucide-react"
+import { Plus, Calendar, MapPin, Users, ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -103,6 +103,7 @@ export default async function EventsPage() {
               const ev = e as unknown as {
                 id: string
                 name: string
+                slug: string
                 location: string | null
                 start_time: string
                 status: string
@@ -110,7 +111,9 @@ export default async function EventsPage() {
               return (
                 <EventCard
                   key={ev.id}
-                  href={`/events/${ev.id}`}
+                  // Attendees enter via the public join page, NOT /events/[id]
+                  // (which redirects to the organizer-only manage view).
+                  href={`/event/${ev.slug}`}
                   name={ev.name}
                   location={ev.location}
                   startTime={ev.start_time}
@@ -175,6 +178,15 @@ function EventCard({
               </span>
             )}
           </div>
+
+          {/* Visual CTA — a span (not a nested link/button) so it stays valid
+              inside the wrapping Link; clicking anywhere on the card navigates. */}
+          <span
+            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            {isHost ? "Manage event" : "Enter event"}
+            <ArrowRight className="size-4" />
+          </span>
         </CardContent>
       </Card>
     </Link>
