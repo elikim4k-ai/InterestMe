@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { MatchCard } from "./match-card"
 import { EventGraph } from "./event-graph"
 import { LocationShareProvider } from "./location-share"
+import { RotationBanner } from "./rotation-banner"
 import { MatchDiagnostics } from "./match-diagnostics"
 import { useEventPresence } from "@/hooks/use-event-presence"
 
@@ -113,6 +114,9 @@ export function DiscoverFeed({
           </Button>
         </div>
       </div>
+
+      {/* Smart networking rounds (shown only when the organizer enabled them) */}
+      <RotationBanner eventId={eventId} />
 
       {/* Always-available match diagnostics */}
       <div className="text-center">
